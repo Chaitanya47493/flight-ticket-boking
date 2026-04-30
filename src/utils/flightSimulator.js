@@ -36,32 +36,35 @@ export const fetchFlights = async (searchData) => {
     return cleanInput.substring(0, 3).toUpperCase();
   };
 
-  if (serpapiKey) {
-    try {
-      const origin = getIataCode(searchData.from);
-      const dest = getIataCode(searchData.to);
-      const type = 2;
+  const isDev = import.meta.env.DEV;
+  const serpapiKey = import.meta.env.VITE_SERPAPI_KEY;
 
-      // In production (Vercel), use the serverless API route
-      // In development, use the Vite proxy
-      const isDev = import.meta.env.DEV;
-      let url;
-      if (isDev) {
-        url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&api_key=${serpapiKey}`;
-      } else {
-        url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
-      }
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch from SerpApi");
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(`Google Flights API Error: ${data.error}`);
-      }
+  // Always call the real API — in dev via Vite proxy, in prod via Vercel serverless function
+  try {
+    const origin = getIataCode(searchData.from);
+    const dest = getIataCode(searchData.to);
+    const type = 2;
+
+    let url;
+    if (isDev && serpapiKey) {
+      // Development: use Vite proxy with API key in URL
+      url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&api_key=${serpapiKey}`;
+    } else {
+      // Production: use Vercel serverless function (key stays server-side)
+      url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Failed to fetch flights from server");
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(`Google Flights API Error: ${data.error}`);
+    }
+
 
       // Combine BOTH best_flights and other_flights so ALL available flights are shown
       if (data.best_flights || data.other_flights) {
@@ -115,10 +118,6 @@ export const fetchFlights = async (searchData) => {
       console.error("SerpApi fetch failed", error);
       throw error; // Throw to FlightResults to display the error
     }
-  }
-
-  // Fallback ONLY if no SerpApi key exists (which shouldn't happen now)
-  return getSmartLocalFallback(searchData);
 };
 
 const getSmartLocalFallback = (searchData) => {
