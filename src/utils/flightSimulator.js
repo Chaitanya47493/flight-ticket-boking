@@ -38,13 +38,19 @@ export const fetchFlights = async (searchData) => {
 
   if (serpapiKey) {
     try {
-      // Clean up inputs. Google Flights expects exactly 3-letter IATA codes.
       const origin = getIataCode(searchData.from);
       const dest = getIataCode(searchData.to);
-      const type = 2; // One-way flight
+      const type = 2;
 
-      // Vite proxy is used to avoid CORS issues
-      const url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&api_key=${serpapiKey}`;
+      // In production (Vercel), use the serverless API route
+      // In development, use the Vite proxy
+      const isDev = import.meta.env.DEV;
+      let url;
+      if (isDev) {
+        url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&api_key=${serpapiKey}`;
+      } else {
+        url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
+      }
       
       const response = await fetch(url);
       if (!response.ok) {
