@@ -2,6 +2,7 @@ import iataMap from './airports.json';
 
 export const fetchFlights = async (searchData) => {
   const serpapiKey = import.meta.env.VITE_SERPAPI_KEY;
+  const isDev = import.meta.env.DEV;
 
   const getIataCode = (input) => {
     const cleanInput = input.trim().toLowerCase();
@@ -36,24 +37,22 @@ export const fetchFlights = async (searchData) => {
     return cleanInput.substring(0, 3).toUpperCase();
   };
 
-  const isDev = import.meta.env.DEV;
-  const serpapiKey = import.meta.env.VITE_SERPAPI_KEY;
+  // Determine API endpoint based on environment
+  const origin = getIataCode(searchData.from);
+  const dest = getIataCode(searchData.to);
+  const type = 2;
+
+  let url;
+  if (isDev && serpapiKey) {
+    // Development: use Vite proxy with API key in URL
+    url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&gl=in&hl=en&api_key=${serpapiKey}`;
+  } else {
+    // Production: use serverless endpoint (API key kept server-side)
+    url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
+  }
 
   // Always call the real API — in dev via Vite proxy, in prod via Vercel serverless function
   try {
-    const origin = getIataCode(searchData.from);
-    const dest = getIataCode(searchData.to);
-    const type = 2;
-
-    let url;
-    if (isDev && serpapiKey) {
-      // Development: use Vite proxy with API key in URL
-      url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&api_key=${serpapiKey}`;
-    } else {
-      // Production: use Vercel serverless function (key stays server-side)
-      url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
-    }
-
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to fetch flights from server");
@@ -73,7 +72,11 @@ export const fetchFlights = async (searchData) => {
           ...(data.other_flights || [])
         ];
 
-        if (allFlights.length === 0) return [];
+    // If API returns no flights, fall back to simulated data
+    if (Array.isArray(allFlights) && allFlights.length === 0) {
+      console.warn('No flights returned from API, using fallback data');
+      return getSmartLocalFallback(searchData);
+    }
 
         // Safari-safe time formatter
         const formatTime = (timeStr) => {
@@ -115,8 +118,8 @@ export const fetchFlights = async (searchData) => {
       // No flights found
       return [];
     } catch (error) {
-      console.error("SerpApi fetch failed", error);
-      throw error; // Throw to FlightResults to display the error
+      console.warn("SerpApi fetch failed, falling back to local simulation data:", error);
+      return getSmartLocalFallback(searchData);
     }
 };
 

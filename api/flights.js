@@ -4,13 +4,13 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const { departure_id, arrival_id, outbound_date, currency = 'INR', type = 2 } = req.query;
-  const apiKey = process.env.VITE_SERPAPI_KEY;
+  const apiKey = process.env.SERPAPI_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  const url = `https://serpapi.com/search.json?engine=google_flights&departure_id=${departure_id}&arrival_id=${arrival_id}&outbound_date=${outbound_date}&type=${type}&currency=${currency}&api_key=${apiKey}`;
+  const url = `https://serpapi.com/search.json?engine=google_flights&departure_id=${departure_id}&arrival_id=${arrival_id}&outbound_date=${outbound_date}&type=${type}&currency=${currency}&gl=in&hl=en&api_key=${apiKey}`;
 
   fetch(url)
     .then(r => r.json())
