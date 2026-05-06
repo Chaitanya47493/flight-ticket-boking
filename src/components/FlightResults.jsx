@@ -116,13 +116,6 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {/* Simulated Data Warning */}
-          {flights.fallbackReason && (
-            <div style={{ width: '100%', marginBottom: '1rem', padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '0.5rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <strong>Offline Mode:</strong> {flights.fallbackReason} Showing offline simulated flights instead.
-            </div>
-          )}
-          
           {/* Sidebar */}
           <div className="glass-panel" style={{ width: '100%', maxWidth: '280px', padding: '1.5rem', flexShrink: 0 }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.1rem' }}>
