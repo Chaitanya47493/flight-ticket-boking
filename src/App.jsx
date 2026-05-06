@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import FlightResults from './components/FlightResults';
@@ -6,12 +6,31 @@ import PassengerForm from './components/PassengerForm';
 import PaymentForm from './components/PaymentForm';
 import BookingConfirmation from './components/BookingConfirmation';
 import MyBookings from './components/MyBookings';
+import AuthModal from './components/AuthModal';
 import { Search, Plane, User, CreditCard, CheckCircle } from 'lucide-react';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import './App.css';
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      // Don't overwrite if we're using the demo user
+      if (user?.uid !== 'demo-123') {
+        setUser(currentUser);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleDemoLogin = () => {
+    setUser({ uid: 'demo-123', email: 'demo@example.com' });
+    setIsAuthModalOpen(false);
+  };
   const [showMyBookings, setShowMyBookings] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [searchData, setSearchData] = useState(null);
@@ -41,7 +60,11 @@ function App() {
 
   const handlePaymentSubmit = async (paymentData) => {
     setIsSubmitting(true);
-    const finalBookingData = { ...bookingData, payment: paymentData };
+    const finalBookingData = { 
+      ...bookingData, 
+      payment: paymentData,
+      userId: user ? user.uid : null, // associate booking with user if logged in
+    };
     setBookingData(finalBookingData);
     
     try {
@@ -67,13 +90,35 @@ function App() {
   return (
     <div className="app-container">
       <Header 
-        onMyBookingsClick={() => setShowMyBookings(true)} 
+        onMyBookingsClick={() => {
+          if (!user) {
+            setIsAuthModalOpen(true);
+          } else {
+            setShowMyBookings(true);
+          }
+        }} 
         onLogoClick={() => setShowMyBookings(false)} 
+        user={user}
+        onLoginClick={() => setIsAuthModalOpen(true)}
+        onLogout={() => {
+          if (user?.uid === 'demo-123') {
+            setUser(null);
+          } else {
+            signOut(auth);
+          }
+          setShowMyBookings(false);
+        }}
+      />
+      
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onDemoLogin={handleDemoLogin}
       />
       
       <main className="main-content">
         {showMyBookings ? (
-          <MyBookings />
+          <MyBookings user={user} />
         ) : (
           <>
             {/* Stepper */}

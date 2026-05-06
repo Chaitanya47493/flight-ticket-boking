@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plane, Clock, Check } from 'lucide-react';
 
-const FlightCard = ({ flight, onSelectClass }) => {
+const FlightCard = ({ flight, tripType, onSelectClass }) => {
   const [selectedClass, setSelectedClass] = useState(null);
 
   const handleClassSelect = (cls) => {
@@ -23,7 +23,23 @@ const FlightCard = ({ flight, onSelectClass }) => {
           </div>
           <div>
             <div className="airline-name">{flight.airline}</div>
-            <div className="flight-number">{flight.flightNumber}</div>
+            <div className="flight-number">
+              {flight.flightNumber}
+              {tripType === 'roundtrip' && (
+                <span style={{
+                  marginLeft: '0.5rem',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  color: '#38bdf8',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  border: '1px solid rgba(56, 189, 248, 0.3)'
+                }}>
+                  Round Trip Included
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -57,7 +73,10 @@ const FlightCard = ({ flight, onSelectClass }) => {
             onClick={() => handleClassSelect(cls)}
           >
             <div className="class-name">{cls.name}</div>
-            <div className="class-price">₹{cls.price}</div>
+            <div className="class-price">
+              ₹{cls.price.toLocaleString()}
+              {tripType === 'roundtrip' && <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal', marginTop: '2px' }}>Total for round trip</div>}
+            </div>
             <div className="class-features">
               {cls.features.map(f => (
                 <div key={f} style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'4px'}}>

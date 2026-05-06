@@ -1,21 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, where } from 'firebase/firestore';
 import { Loader2, Calendar, MapPin, Ticket } from 'lucide-react';
 
-const MyBookings = () => {
+const MyBookings = ({ user }) => {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const q = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
+        const q = query(
+          collection(db, "bookings"), 
+          where("userId", "==", user?.uid || null)
+        );
         const querySnapshot = await getDocs(q);
         const fetchedBookings = [];
         querySnapshot.forEach((doc) => {
           fetchedBookings.push({ id: doc.id, ...doc.data() });
         });
+        
+        fetchedBookings.sort((a, b) => {
+          const timeA = a.createdAt ? a.createdAt.seconds : 0;
+          const timeB = b.createdAt ? b.createdAt.seconds : 0;
+          return timeB - timeA;
+        });
+        
         setBookings(fetchedBookings);
       } catch (error) {
         console.error("Error fetching bookings:", error);

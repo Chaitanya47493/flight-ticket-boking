@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import FlightCard from './FlightCard';
-import { ArrowLeft, Loader2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Loader2, ChevronDown, Filter } from 'lucide-react';
 import { fetchFlights } from '../utils/flightSimulator';
 
 const PAGE_SIZE = 10;
@@ -35,8 +35,39 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
     return () => { isMounted = false; };
   }, [searchData]);
 
-  const visibleFlights = flights.slice(0, visibleCount);
-  const hasMore = visibleCount < flights.length;
+  const [filterStops, setFilterStops] = useState('all');
+  const [filterAirlines, setFilterAirlines] = useState([]);
+  const [filterTime, setFilterTime] = useState('all');
+
+  const uniqueAirlines = useMemo(() => {
+    return [...new Set(flights.map(f => f.airline))];
+  }, [flights]);
+
+  const filteredFlights = useMemo(() => {
+    return flights.filter(f => {
+      if (filterStops !== 'all') {
+        if (filterStops === '0' && f.stops !== 0) return false;
+        if (filterStops === '1' && f.stops !== 1) return false;
+        if (filterStops === '2+' && f.stops < 2) return false;
+      }
+      if (filterAirlines.length > 0 && !filterAirlines.includes(f.airline)) return false;
+      if (filterTime !== 'all') {
+        const hour = parseInt(f.departureTime.split(':')[0], 10);
+        const isPM = f.departureTime.includes('PM');
+        let h24 = hour;
+        if (isPM && hour !== 12) h24 += 12;
+        if (!isPM && hour === 12) h24 = 0;
+        
+        if (filterTime === 'morning' && (h24 < 5 || h24 >= 12)) return false;
+        if (filterTime === 'afternoon' && (h24 < 12 || h24 >= 18)) return false;
+        if (filterTime === 'evening' && (h24 < 18)) return false;
+      }
+      return true;
+    });
+  }, [flights, filterStops, filterAirlines, filterTime]);
+
+  const visibleFlights = filteredFlights.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredFlights.length;
 
   return (
     <div className="animate-fade-in">
@@ -44,7 +75,9 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
         <div className="results-info">
           <h2>Select your flight</h2>
           <p>
-            {searchData.from} → {searchData.to} &nbsp;•&nbsp; {searchData.date} &nbsp;•&nbsp; {searchData.passengers} Passenger(s)
+            {searchData.from} {searchData.tripType === 'roundtrip' ? '↔' : '→'} {searchData.to} &nbsp;•&nbsp; 
+            {searchData.date} {searchData.tripType === 'roundtrip' && ` - ${searchData.returnDate}`} &nbsp;•&nbsp; 
+            {searchData.passengers} Passenger(s)
             {!isLoading && flights.length > 0 && (
               <span style={{
                 marginLeft: '0.75rem',
@@ -55,7 +88,7 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                 fontSize: '0.8rem',
                 fontWeight: 600
               }}>
-                {flights.length} flights found
+                {filteredFlights.length} flights found
               </span>
             )}
           </p>
@@ -82,27 +115,107 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
           <p style={{ color: 'var(--text-secondary)' }}>Try changing your dates or destination.</p>
         </div>
       ) : (
-        <div className="flights-list">
-          {visibleFlights.map((flight) => (
-            <FlightCard
-              key={flight.id}
-              flight={flight}
-              onSelectClass={onSelectFlight}
-            />
-          ))}
-
-          {hasMore && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
-              <button
-                className="btn-secondary"
-                onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 2rem' }}
-              >
-                <ChevronDown size={18} />
-                Show more flights ({flights.length - visibleCount} remaining)
-              </button>
+        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* Simulated Data Warning */}
+          {flights.fallbackReason && (
+            <div style={{ width: '100%', marginBottom: '1rem', padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '0.5rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <strong>Offline Mode:</strong> {flights.fallbackReason} Showing offline simulated flights instead.
             </div>
           )}
+          
+          {/* Sidebar */}
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '280px', padding: '1.5rem', flexShrink: 0 }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.1rem' }}>
+              <Filter size={18} /> Filters
+            </h3>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Stops</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {['all', '0', '1', '2+'].map(stop => (
+                  <label key={stop} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    <input 
+                      type="radio" 
+                      name="stops" 
+                      checked={filterStops === stop}
+                      onChange={() => setFilterStops(stop)}
+                    />
+                    {stop === 'all' ? 'Any number of stops' : stop === '0' ? 'Non-stop only' : stop === '1' ? '1 stop or fewer' : '2+ stops'}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Departure Time</h4>
+              <select 
+                value={filterTime} 
+                onChange={(e) => setFilterTime(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem' }}
+              >
+                <option value="all">Any time</option>
+                <option value="morning">Morning (5:00 AM - 11:59 AM)</option>
+                <option value="afternoon">Afternoon (12:00 PM - 5:59 PM)</option>
+                <option value="evening">Evening (6:00 PM onwards)</option>
+              </select>
+            </div>
+
+            <div>
+              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Airlines</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {uniqueAirlines.map(airline => (
+                  <label key={airline} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={filterAirlines.includes(airline)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilterAirlines([...filterAirlines, airline]);
+                        } else {
+                          setFilterAirlines(filterAirlines.filter(a => a !== airline));
+                        }
+                      }}
+                    />
+                    {airline}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="flights-list" style={{ flex: 1, minWidth: '300px' }}>
+            {filteredFlights.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem' }}>
+                <p>No flights match your filters.</p>
+                <button onClick={() => { setFilterStops('all'); setFilterAirlines([]); setFilterTime('all'); }} className="btn-secondary" style={{ marginTop: '1rem' }}>Clear Filters</button>
+              </div>
+            ) : (
+              <>
+                {visibleFlights.map((flight) => (
+                  <FlightCard
+                    key={flight.id}
+                    flight={flight}
+                    tripType={searchData.tripType}
+                    onSelectClass={onSelectFlight}
+                  />
+                ))}
+
+                {hasMore && (
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 2rem' }}
+                    >
+                      <ChevronDown size={18} />
+                      Show more flights ({filteredFlights.length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

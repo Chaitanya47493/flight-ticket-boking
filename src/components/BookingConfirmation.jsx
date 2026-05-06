@@ -49,11 +49,12 @@ const BookingConfirmation = ({ bookingData, onReset }) => {
           </div>
           <div className="summary-row">
             <span className="summary-label">Payment Card</span>
-            <span className="summary-value">**** **** **** {payment?.cardNumber.slice(-4) || '0000'}</span>
+            <span className="summary-value">**** **** **** {payment?.cardNumber?.slice(-4) || '0000'}</span>
           </div>
+
           <div className="summary-row">
             <span className="summary-label">Total Amount Paid</span>
-            <span className="summary-value" style={{color: 'var(--accent-color)'}}>₹{selectedClass.price}</span>
+            <span className="summary-value" style={{color: 'var(--accent-color)'}}>₹{selectedClass.price.toLocaleString()}</span>
           </div>
         </div>
       </div>

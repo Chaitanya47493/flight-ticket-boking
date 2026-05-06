@@ -46,7 +46,7 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
               Card Details
             </h3>
             <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent-color)' }}>
-              Total: ₹{bookingData.selectedClass.price}
+              Total: ₹{bookingData.selectedClass.price.toLocaleString()}
             </div>
           </div>
 
@@ -122,7 +122,7 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
             </button>
             <button type="submit" className="btn-primary" disabled={isSubmitting}>
               <Lock size={18} />
-              Pay ₹{bookingData.selectedClass.price}
+              Pay ₹{bookingData.selectedClass.price.toLocaleString()}
             </button>
           </div>
         </div>

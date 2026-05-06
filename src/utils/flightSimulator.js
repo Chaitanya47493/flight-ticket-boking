@@ -40,15 +40,21 @@ export const fetchFlights = async (searchData) => {
   // Determine API endpoint based on environment
   const origin = getIataCode(searchData.from);
   const dest = getIataCode(searchData.to);
-  const type = 2;
+  const type = searchData.tripType === 'roundtrip' ? 1 : 2;
 
   let url;
   if (isDev && serpapiKey) {
     // Development: use Vite proxy with API key in URL
     url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR&gl=in&hl=en&api_key=${serpapiKey}`;
+    if (searchData.tripType === 'roundtrip' && searchData.returnDate) {
+      url += `&return_date=${searchData.returnDate}`;
+    }
   } else {
     // Production: use serverless endpoint (API key kept server-side)
     url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&type=${type}&currency=INR`;
+    if (searchData.tripType === 'roundtrip' && searchData.returnDate) {
+      url += `&return_date=${searchData.returnDate}`;
+    }
   }
 
   // Always call the real API — in dev via Vite proxy, in prod via Vercel serverless function
@@ -75,7 +81,9 @@ export const fetchFlights = async (searchData) => {
     // If API returns no flights, fall back to simulated data
     if (Array.isArray(allFlights) && allFlights.length === 0) {
       console.warn('No flights returned from API, using fallback data');
-      return getSmartLocalFallback(searchData);
+      const fallbackFlights = getSmartLocalFallback(searchData);
+      fallbackFlights.fallbackReason = "Google Flights returned no flights for this search.";
+      return fallbackFlights;
     }
 
         // Safari-safe time formatter
@@ -119,7 +127,9 @@ export const fetchFlights = async (searchData) => {
       return [];
     } catch (error) {
       console.warn("SerpApi fetch failed, falling back to local simulation data:", error);
-      return getSmartLocalFallback(searchData);
+      const fallbackFlights = getSmartLocalFallback(searchData);
+      fallbackFlights.fallbackReason = error.message;
+      return fallbackFlights;
     }
 };
 
@@ -133,6 +143,8 @@ const getSmartLocalFallback = (searchData) => {
   let airlines = [
     { name: 'Global Airways', prefix: 'GA', basePrice: 8000, premiumFactor: 2.5 }
   ];
+
+  const roundTripMultiplier = searchData.tripType === 'roundtrip' ? 2 : 1;
 
   if (isIndia(originStr) || isIndia(destStr)) {
     airlines = [
@@ -186,9 +198,9 @@ const getSmartLocalFallback = (searchData) => {
       duration: durationStr,
       stops: i === 4 ? 1 : 0,
       classes: [
-        { name: "Economy", price: airline.basePrice * searchData.passengers, features: ["1 Checked Bag"] },
-        { name: "Business", price: Math.floor(airline.basePrice * airline.premiumFactor) * searchData.passengers, features: ["2 Checked Bags"] },
-        { name: "First Class", price: Math.floor(airline.basePrice * (airline.premiumFactor + 1.5)) * searchData.passengers, features: ["3 Checked Bags"] }
+        { name: "Economy", price: airline.basePrice * roundTripMultiplier * searchData.passengers, features: ["1 Checked Bag"] },
+        { name: "Business", price: Math.floor(airline.basePrice * airline.premiumFactor) * roundTripMultiplier * searchData.passengers, features: ["2 Checked Bags"] },
+        { name: "First Class", price: Math.floor(airline.basePrice * (airline.premiumFactor + 1.5)) * roundTripMultiplier * searchData.passengers, features: ["3 Checked Bags"] }
       ]
     });
   }

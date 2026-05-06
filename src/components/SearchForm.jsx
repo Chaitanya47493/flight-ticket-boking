@@ -115,10 +115,12 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
 };
 
 const SearchForm = ({ onSearch }) => {
+  const [tripType, setTripType] = useState('oneway');
   const [formData, setFormData] = useState({
     from: '',
     to: '',
     date: '',
+    returnDate: '',
     passengers: 1
   });
 
@@ -128,22 +130,43 @@ const SearchForm = ({ onSearch }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.from || !formData.to || !formData.date) {
-      alert("Please fill in all fields.");
+    if (!formData.from || !formData.to || !formData.date || (tripType === 'roundtrip' && !formData.returnDate)) {
+      alert("Please fill in all required fields.");
       return;
     }
     const todayStr = new Date().toLocaleDateString('en-CA');
     if (formData.date < todayStr) {
-      alert("Please select a current or future date.");
+      alert("Please select a current or future departure date.");
       return;
     }
-    onSearch(formData);
+    if (tripType === 'roundtrip' && formData.returnDate < formData.date) {
+      alert("Return date cannot be before departure date.");
+      return;
+    }
+    onSearch({ ...formData, tripType });
   };
 
   return (
     <div className="search-container animate-slide-up">
       <h1 className="search-title gradient-text">Where will you go next?</h1>
       <p className="search-subtitle">Discover premium flights to amazing destinations worldwide.</p>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
+        <button 
+          className={`btn-secondary ${tripType === 'oneway' ? 'active-tab' : ''}`}
+          onClick={() => setTripType('oneway')}
+          style={{ background: tripType === 'oneway' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'oneway' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
+        >
+          One Way
+        </button>
+        <button 
+          className={`btn-secondary ${tripType === 'roundtrip' ? 'active-tab' : ''}`}
+          onClick={() => setTripType('roundtrip')}
+          style={{ background: tripType === 'roundtrip' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'roundtrip' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
+        >
+          Round Trip
+        </button>
+      </div>
 
       <form className="glass-panel" style={{ padding: '2rem' }} onSubmit={handleSubmit}>
         <div className="search-grid">
@@ -181,6 +204,25 @@ const SearchForm = ({ onSearch }) => {
               />
             </div>
           </div>
+
+          {tripType === 'roundtrip' && (
+            <div className="input-group animate-fade-in">
+              <label htmlFor="returnDate">Return Date</label>
+              <div className="input-wrapper">
+                <Calendar className="input-icon" size={20} />
+                <input
+                  type="date"
+                  id="returnDate"
+                  name="returnDate"
+                  className="input-field"
+                  value={formData.returnDate}
+                  min={formData.date || new Date().toLocaleDateString('en-CA')}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+          )}
 
           <div className="input-group">
             <label htmlFor="passengers">Passengers</label>
