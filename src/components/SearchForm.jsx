@@ -9,9 +9,20 @@ const airportList = Object.entries(iataMap).map(([city, code]) => ({
 }));
 
 const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
+  // displayValue = what user sees while typing; value (IATA code) = what is stored
+  const [displayValue, setDisplayValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isSelected, setIsSelected] = useState(false); // true only after picking from dropdown
   const wrapperRef = useRef(null);
+
+  // Sync display when external value is cleared (e.g. form reset)
+  useEffect(() => {
+    if (!value) {
+      setDisplayValue('');
+      setIsSelected(false);
+    }
+  }, [value]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -26,7 +37,11 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
 
   const handleInput = (e) => {
     const val = e.target.value;
-    onChange(e);
+    setDisplayValue(val);
+    setIsSelected(false); // user is typing freely — not a valid selection yet
+    // Clear the stored IATA code until they pick from dropdown
+    onChange({ target: { name, value: '' } });
+
     if (val.length < 1) {
       setSuggestions([]);
       setShowDropdown(false);
@@ -43,9 +58,23 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
   };
 
   const handleSelect = (airport) => {
-    onChange({ target: { name, value: airport.code } });
+    setDisplayValue(`${airport.city} (${airport.code})`);
+    setIsSelected(true);
+    onChange({ target: { name, value: airport.code } }); // store IATA code
     setShowDropdown(false);
     setSuggestions([]);
+  };
+
+  // If user leaves without selecting, clear the field
+  const handleBlur = () => {
+    setTimeout(() => {
+      if (!isSelected) {
+        setDisplayValue('');
+        onChange({ target: { name, value: '' } });
+        setSuggestions([]);
+        setShowDropdown(false);
+      }
+    }, 150); // small delay so onMouseDown on suggestion fires first
   };
 
   return (
@@ -59,13 +88,31 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
           name={name}
           className="input-field"
           placeholder={placeholder}
-          value={value}
+          value={displayValue}
           onChange={handleInput}
-          onFocus={() => value.length > 0 && setShowDropdown(suggestions.length > 0)}
+          onBlur={handleBlur}
+          onFocus={() => {
+            if (displayValue.length > 0 && !isSelected) {
+              setShowDropdown(suggestions.length > 0);
+            }
+          }}
           autoComplete="off"
           required
         />
       </div>
+
+      {/* Validation hint */}
+      {displayValue.length > 0 && !isSelected && (
+        <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px', display: 'block' }}>
+          ⚠️ Please select a city from the list
+        </span>
+      )}
+      {isSelected && (
+        <span style={{ fontSize: '0.75rem', color: '#4ade80', marginTop: '4px', display: 'block' }}>
+          ✓ Airport selected
+        </span>
+      )}
+
       {showDropdown && (
         <div style={{
           position: 'absolute',

@@ -37,17 +37,11 @@ const AuthModal = ({ isOpen, onClose, onDemoLogin }) => {
     setResetSent(false);
     setLoading(true);
     try {
-      if (email === 'demo@example.com' && password === 'demo123') {
-        if (onDemoLogin) onDemoLogin();
-        return;
-      }
-      
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      onClose();
       onClose();
     } catch (err) {
       if (err.code === 'auth/operation-not-allowed') {
@@ -88,9 +82,6 @@ const AuthModal = ({ isOpen, onClose, onDemoLogin }) => {
         {error && <div style={errorStyle}>{error}</div>}
         {resetSent && <div style={{...errorStyle, backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)', color: '#22c55e'}}>Password reset email sent! Please check your inbox.</div>}
         
-        <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#818cf8', textAlign: 'center' }}>
-          <strong>Demo Mode:</strong> Use <code>demo@example.com</code> / <code>demo123</code> to test the booking flow without configuring Firebase!
-        </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="input-group">
