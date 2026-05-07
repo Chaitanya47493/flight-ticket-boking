@@ -202,6 +202,29 @@ const getSmartLocalFallback = (searchData) => {
     ];
   }
 
+  // Smart Logic: If both are small regional Indian stations, they likely need a connection
+  const isSmallRegional = (code) => ['CDP', 'KJB', 'TIR', 'VGA', 'RJA', 'HBX'].includes(code);
+  if (isSmallRegional(originStr) && isSmallRegional(destStr) && originStr !== destStr) {
+    return [
+      {
+        id: `conn-${Date.now()}-1`,
+        airline: 'IndiGo',
+        flightNumber: '6E 7931 / 6E 7214',
+        origin: originStr,
+        destination: destStr,
+        departureTime: '09:15 AM',
+        arrivalTime: '02:40 PM',
+        duration: '5h 25m',
+        stops: 1,
+        stopDetails: 'via Hyderabad (HYD)',
+        classes: [
+          { name: "Economy", price: 5450 * roundTripMultiplier * searchData.passengers, features: ["1 Checked Bag"] },
+          { name: "Business", price: 9200 * roundTripMultiplier * searchData.passengers, features: ["2 Checked Bags"] }
+        ]
+      }
+    ];
+  }
+
   if (isIndia(originStr) || isIndia(destStr)) {
     airlines = [
       { name: 'IndiGo', prefix: '6E', basePrice: 3200, premiumFactor: 1.8 },
