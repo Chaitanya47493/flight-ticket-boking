@@ -42,6 +42,8 @@ export const fetchFlights = async (searchData) => {
   const dest = getIataCode(searchData.to);
   const type = searchData.tripType === 'roundtrip' ? 1 : 2;
 
+  console.log(`Searching Global API for: ${origin} (${searchData.from}) to ${dest} (${searchData.to})`);
+
   let url;
   if (isDev && serpapiKey) {
     // Development: use Vite proxy with API key in URL
