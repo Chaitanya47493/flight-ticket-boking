@@ -14,8 +14,8 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import emailjs from '@emailjs/browser';
 import './App.css';
 
-// Initialize EmailJS with your actual public key
-emailjs.init("twDo3sgl5ca605MeZ");
+// Initialize EmailJS with your actual public key (Verified: capital 'I' after 'sg')
+emailjs.init("twDo3sgI5ca605MeZ");
 
 function App() {
   const [user, setUser] = useState(undefined); // undefined = still loading
