@@ -1,11 +1,11 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Check, Home } from 'lucide-react';
 
-const BookingConfirmation = ({ bookingData, onReset }) => {
+// bookingId is the real Firestore document ID passed from App.jsx
+const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
   const { flight, selectedClass, passengers, payment, searchData } = bookingData;
-  const bookingRef = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const ticketRef = useRef(null);
-  // Download ticket functionality removed as per user request
+  // Use real Firestore doc ID for a stable, unique reference
+  const bookingRef = bookingId ? bookingId.substring(0, 6).toUpperCase() : '------';
 
   return (
     <div className="confirmation-container animate-scale-in">

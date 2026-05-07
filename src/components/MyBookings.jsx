@@ -35,7 +35,7 @@ const MyBookings = ({ user }) => {
     };
 
     fetchBookings();
-  }, []);
+  }, [user]); // re-fetch if user changes
 
   if (isLoading) {
     return (
@@ -97,6 +97,16 @@ const MyBookings = ({ user }) => {
                   <p style={{ fontWeight: '600' }}>{booking.searchData?.passengers} Passenger(s)</p>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>
                     Class: {booking.selectedClass?.name}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 style={{ color: 'var(--text-light)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Amount Paid</h4>
+                  <p style={{ fontWeight: '700', color: 'var(--accent-color)', fontSize: '1.1rem' }}>
+                    ₹{booking.selectedClass?.price?.toLocaleString() || '—'}
+                  </p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                    {booking.searchData?.tripType === 'roundtrip' ? 'Round Trip' : 'One Way'}
                   </p>
                 </div>
               </div>

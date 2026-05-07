@@ -53,6 +53,7 @@ function App() {
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
   const handlePaymentSubmit = async (paymentData) => {
     setIsSubmitting(true);
@@ -65,10 +66,11 @@ function App() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const docRef = await addDoc(collection(db, 'bookings'), finalBookingData);
-      
-      // Send Email Ticket
+      setBookingId(docRef.id);
+
+      // Send Email Ticket (to the passenger's email, not the login account email)
       const templateParams = {
-        email: user.email,
+        email: finalBookingData.passengers.email,
         passenger_name: `${finalBookingData.passengers.firstName} ${finalBookingData.passengers.lastName}`,
         flight_number: `${finalBookingData.flight.airline} ${finalBookingData.flight.flightNumber}`,
         route: `${finalBookingData.flight.origin} to ${finalBookingData.flight.destination}`,
@@ -101,6 +103,7 @@ function App() {
   const handleReset = () => {
     setSearchData(null);
     setBookingData({ flight: null, selectedClass: null, passengers: null, payment: null });
+    setBookingId('');
     setCurrentStep(1);
   };
 
@@ -214,6 +217,7 @@ function App() {
             {currentStep === 5 && (
               <BookingConfirmation
                 bookingData={bookingData}
+                bookingId={bookingId}
                 onReset={handleReset}
               />
             )}

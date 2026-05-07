@@ -163,6 +163,7 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
 
 const SearchForm = ({ onSearch }) => {
   const [tripType, setTripType] = useState('oneway');
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
     from: '',
     to: '',
@@ -177,17 +178,22 @@ const SearchForm = ({ onSearch }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.from || !formData.to || !formData.date || (tripType === 'roundtrip' && !formData.returnDate)) {
-      alert("Please fill in all required fields.");
+    setFormError('');
+    if (!formData.from || !formData.to) {
+      setFormError('Please select both origin and destination airports from the dropdown.');
+      return;
+    }
+    if (!formData.date || (tripType === 'roundtrip' && !formData.returnDate)) {
+      setFormError('Please fill in all required date fields.');
       return;
     }
     const todayStr = new Date().toLocaleDateString('en-CA');
     if (formData.date < todayStr) {
-      alert("Please select a current or future departure date.");
+      setFormError('Please select a current or future departure date.');
       return;
     }
     if (tripType === 'roundtrip' && formData.returnDate < formData.date) {
-      alert("Return date cannot be before departure date.");
+      setFormError('Return date cannot be before the departure date.');
       return;
     }
     onSearch({ ...formData, tripType });
@@ -289,6 +295,23 @@ const SearchForm = ({ onSearch }) => {
             </div>
           </div>
         </div>
+
+        {formError && (
+          <div style={{
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            color: '#f87171',
+            padding: '0.75rem 1rem',
+            borderRadius: '10px',
+            fontSize: '0.875rem',
+            marginTop: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            ⚠️ {formError}
+          </div>
+        )}
 
         <div className="search-btn-container">
           <button type="submit" className="btn-primary">
