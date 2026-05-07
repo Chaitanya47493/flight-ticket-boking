@@ -59,12 +59,14 @@ export const fetchFlights = async (searchData) => {
 
   // Always call the real API — in dev via Vite proxy, in prod via Vercel serverless function
   try {
+    console.log(`Fetching LIVE flights for: ${origin} to ${dest} on ${searchData.date}`);
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error("Failed to fetch flights from server");
+      throw new Error(`API Response Error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log("LIVE API Data Received:", !!data.best_flights || !!data.other_flights);
 
     if (data.error) {
       // If it's a specific API error (like invalid date), don't fallback to fake data, tell the user
