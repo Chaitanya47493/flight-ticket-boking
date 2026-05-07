@@ -24,10 +24,17 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
         if (!/^\d{2}\/\d{2}$/.test(value)) return 'Format must be MM/YY';
         const [mm, yy] = value.split('/').map(Number);
         if (mm < 1 || mm > 12) return 'Month must be between 01 and 12';
+        
         const now = new Date();
-        const expiry = new Date(2000 + yy, mm - 1, 1);
-        if (expiry < new Date(now.getFullYear(), now.getMonth(), 1))
+        const currentYear = now.getFullYear() % 100;
+        const currentMonth = now.getMonth() + 1; // 1-12
+
+        if (yy < currentYear) {
           return 'Card has expired';
+        }
+        if (yy === currentYear && mm < currentMonth) {
+          return 'Card has expired';
+        }
         return '';
       }
       case 'cvv':
@@ -255,6 +262,10 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
               Pay ₹{bookingData.selectedClass.price.toLocaleString()}
             </button>
           </div>
+          {/* Note for EmailJS setup */}
+          <p style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
+            A ticket will be sent to <strong>{bookingData.passengers.email}</strong> upon successful payment.
+          </p>
         </div>
       </form>
     </div>

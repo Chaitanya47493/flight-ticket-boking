@@ -11,7 +11,11 @@ import { Search, Plane, User, CreditCard, CheckCircle } from 'lucide-react';
 import { db, auth } from './firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import emailjs from '@emailjs/browser';
 import './App.css';
+
+// Initialize EmailJS with your actual public key
+emailjs.init("twDo3sgl5ca605MeZ");
 
 function App() {
   const [user, setUser] = useState(undefined); // undefined = still loading
@@ -60,7 +64,29 @@ function App() {
     setBookingData(finalBookingData);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      await addDoc(collection(db, 'bookings'), finalBookingData);
+      const docRef = await addDoc(collection(db, 'bookings'), finalBookingData);
+      
+      // Send Email Ticket
+      const templateParams = {
+        email: user.email,
+        passenger_name: `${finalBookingData.passengers.firstName} ${finalBookingData.passengers.lastName}`,
+        flight_number: `${finalBookingData.flight.airline} ${finalBookingData.flight.flightNumber}`,
+        route: `${finalBookingData.flight.origin} to ${finalBookingData.flight.destination}`,
+        departure_date: finalBookingData.searchData.date,
+        departure_time: finalBookingData.flight.departureTime,
+        booking_ref: docRef.id.substring(0, 6).toUpperCase(),
+        total_price: `₹${finalBookingData.selectedClass.price.toLocaleString()}`
+      };
+
+      emailjs.send(
+        "service_j8vtled", // Your Service ID
+        "template_ticket", // Your Template ID
+        templateParams
+      ).then(
+        (response) => console.log('Email sent successfully!', response.status, response.text),
+        (error) => console.error('Failed to send email:', error)
+      );
+
       setCurrentStep(5);
     } catch (e) {
       console.error('Error adding document: ', e);
