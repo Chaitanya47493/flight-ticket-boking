@@ -204,18 +204,39 @@ const getSmartLocalFallback = (searchData) => {
       { airline: 'IndiGo', no: '6E 7954', dep: '10:45 AM', arr: '11:55 AM', dur: '1h 10m', price: 3450 },
       { airline: 'Alliance Air', no: '9I 877', dep: '01:20 PM', arr: '02:35 PM', dur: '1h 15m', price: 2899 }
     ],
+    'MAA-CDP': [
+      { airline: 'IndiGo', no: '6E 7953', dep: '09:05 AM', arr: '10:15 AM', dur: '1h 10m', price: 3450 },
+      { airline: 'Alliance Air', no: '9I 878', dep: '02:55 PM', arr: '04:10 PM', dur: '1h 15m', price: 2899 }
+    ],
     'KJB-MAA': [
       { airline: 'IndiGo', no: '6E 7935', dep: '11:20 AM', arr: '12:35 PM', dur: '1h 15m', price: 3850 }
     ],
+    'MAA-KJB': [
+      { airline: 'IndiGo', no: '6E 7934', dep: '09:35 AM', arr: '10:50 AM', dur: '1h 15m', price: 3850 }
+    ],
     'KJB-VGA': [
       { airline: 'IndiGo', no: '6E 7931/7214', dep: '09:15 AM', arr: '02:40 PM', dur: '5h 25m', price: 5450, stops: 1, via: 'HYD' }
+    ],
+    'VGA-KJB': [
+      { airline: 'IndiGo', no: '6E 7215/7932', dep: '11:45 AM', arr: '05:15 PM', dur: '5h 30m', price: 5450, stops: 1, via: 'HYD' }
     ],
     'TIR-HYD': [
       { airline: 'IndiGo', no: '6E 7156', dep: '08:30 AM', arr: '09:40 AM', dur: '1h 10m', price: 4200 },
       { airline: 'IndiGo', no: '6E 7219', dep: '06:15 PM', arr: '07:35 PM', dur: '1h 20m', price: 4500 }
     ],
+    'HYD-TIR': [
+      { airline: 'IndiGo', no: '6E 7155', dep: '06:45 AM', arr: '07:55 AM', dur: '1h 10m', price: 4200 },
+      { airline: 'IndiGo', no: '6E 7218', dep: '04:30 PM', arr: '05:50 PM', dur: '1h 20m', price: 4500 }
+    ],
     'CDP-BLR': [
       { airline: 'IndiGo', no: '6E 7958', dep: '02:15 PM', arr: '03:10 PM', dur: '55m', price: 3100 }
+    ],
+    'BLR-CDP': [
+      { airline: 'IndiGo', no: '6E 7957', dep: '12:45 PM', arr: '01:45 PM', dur: '1h 00m', price: 3100 }
+    ],
+    'VGA-HYD': [
+      { airline: 'Air India', no: 'AI 542', dep: '08:15 AM', arr: '09:15 AM', dur: '1h 00m', price: 3200 },
+      { airline: 'IndiGo', no: '6E 7112', dep: '07:30 PM', arr: '08:40 PM', dur: '1h 10m', price: 3400 }
     ]
   };
 
