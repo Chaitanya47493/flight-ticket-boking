@@ -181,6 +181,27 @@ const getSmartLocalFallback = (searchData) => {
     ];
   }
 
+  // Real-world specific route data for Kurnool to Chennai
+  if (originStr === 'KJB' && destStr === 'MAA') {
+    return [
+      {
+        id: `real-kjb-maa-1`,
+        airline: 'IndiGo',
+        flightNumber: '6E 7935',
+        origin: 'KJB',
+        destination: 'MAA',
+        departureTime: '11:20 AM',
+        arrivalTime: '12:35 PM',
+        duration: '1h 15m',
+        stops: 0,
+        classes: [
+          { name: "Economy", price: 3850 * roundTripMultiplier * searchData.passengers, features: ["1 Checked Bag"] },
+          { name: "Business", price: 7100 * roundTripMultiplier * searchData.passengers, features: ["2 Checked Bags"] }
+        ]
+      }
+    ];
+  }
+
   if (isIndia(originStr) || isIndia(destStr)) {
     airlines = [
       { name: 'IndiGo', prefix: '6E', basePrice: 3200, premiumFactor: 1.8 },
