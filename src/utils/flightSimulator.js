@@ -148,9 +148,10 @@ const getSmartLocalFallback = (searchData) => {
 
   if (isIndia(originStr) || isIndia(destStr)) {
     airlines = [
-      { name: 'IndiGo', prefix: '6E', basePrice: 4500, premiumFactor: 2.0 },
-      { name: 'Air India', prefix: 'AI', basePrice: 5200, premiumFactor: 2.8 },
-      { name: 'Vistara', prefix: 'UK', basePrice: 5800, premiumFactor: 3.0 }
+      { name: 'IndiGo', prefix: '6E', basePrice: 3200, premiumFactor: 1.8 },
+      { name: 'Air India', prefix: 'AI', basePrice: 4500, premiumFactor: 2.2 },
+      { name: 'Vistara', prefix: 'UK', basePrice: 4800, premiumFactor: 2.5 },
+      { name: 'Alliance Air', prefix: '9I', basePrice: 2800, premiumFactor: 1.5 }
     ];
   } else if (isUS(originStr) || isUS(destStr)) {
     airlines = [
