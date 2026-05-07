@@ -74,6 +74,8 @@ function App() {
         route: `${finalBookingData.flight.origin} to ${finalBookingData.flight.destination}`,
         departure_date: finalBookingData.searchData.date,
         departure_time: finalBookingData.flight.departureTime,
+        arrival_time: finalBookingData.flight.arrivalTime,
+        duration: finalBookingData.flight.duration,
         booking_ref: docRef.id.substring(0, 6).toUpperCase(),
         total_price: `₹${finalBookingData.selectedClass.price.toLocaleString()}`
       };
