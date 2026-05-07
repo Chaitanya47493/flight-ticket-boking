@@ -59,9 +59,49 @@ export const fetchFlights = async (searchData) => {
     }
   }
 
-  // Always call the real API — in dev via Vite proxy, in prod via Vercel serverless function
+  // Priority 1: Professional Skyscanner API (if key is present)
+  const rapidapiKey = import.meta.env.VITE_RAPIDAPI_KEY;
+  if (rapidapiKey && rapidapiKey !== 'PASTE_YOUR_RAPIDAPI_KEY_HERE') {
+    try {
+      console.log(`Fetching PROFESSIONAL Skyscanner flights for: ${origin} to ${dest}`);
+      const skyUrl = `https://skyscanner-flight-search.p.rapidapi.com/en-IN/INR/en-IN/${origin}-sky/${dest}-sky/${searchData.date}`;
+      const response = await fetch(skyUrl, {
+        headers: {
+          'X-RapidAPI-Key': rapidapiKey,
+          'X-RapidAPI-Host': 'skyscanner-flight-search.p.rapidapi.com'
+        }
+      });
+
+      if (response.ok) {
+        const skyData = await response.json();
+        if (skyData.Quotes && skyData.Quotes.length > 0) {
+          return skyData.Quotes.map((quote, index) => {
+            const carrier = skyData.Carriers.find(c => c.CarrierId === quote.OutboundLeg.CarrierIds[0]);
+            return {
+              id: `sky-${quote.QuoteId}`,
+              airline: carrier ? carrier.Name : 'Multiple Airlines',
+              flightNumber: `SKY-${quote.QuoteId}`,
+              origin: origin,
+              destination: dest,
+              departureTime: 'See Skyscanner for Time', // Quotes are often just prices
+              arrivalTime: 'Flexible',
+              duration: 'Direct',
+              stops: quote.Direct ? 0 : 1,
+              classes: [
+                { name: "Economy", price: quote.MinPrice * searchData.passengers, features: ["Professional Data"] }
+              ]
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Skyscanner API failed, trying Google Flights...", e);
+    }
+  }
+
+  // Priority 2: Google Flights API (SerpApi)
   try {
-    console.log(`Fetching LIVE flights for: ${origin} to ${dest} on ${searchData.date}`);
+    console.log(`Fetching LIVE Google flights for: ${origin} to ${dest} on ${searchData.date}`);
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`API Response Error: ${response.status}`);
@@ -237,6 +277,19 @@ const getSmartLocalFallback = (searchData) => {
     'VGA-HYD': [
       { airline: 'Air India', no: 'AI 542', dep: '08:15 AM', arr: '09:15 AM', dur: '1h 00m', price: 3200 },
       { airline: 'IndiGo', no: '6E 7112', dep: '07:30 PM', arr: '08:40 PM', dur: '1h 10m', price: 3400 }
+    ],
+    'BOM-DEL': [
+      { airline: 'IndiGo', no: '6E 2134', dep: '06:00 AM', arr: '08:10 AM', dur: '2h 10m', price: 5600 },
+      { airline: 'Air India', no: 'AI 864', dep: '09:00 AM', arr: '11:15 AM', dur: '2h 15m', price: 6200 },
+      { airline: 'Vistara', no: 'UK 944', dep: '12:30 PM', arr: '02:45 PM', dur: '2h 15m', price: 7100 }
+    ],
+    'DEL-BOM': [
+      { airline: 'IndiGo', no: '6E 2135', dep: '08:00 AM', arr: '10:10 AM', dur: '2h 10m', price: 5600 },
+      { airline: 'Air India', no: 'AI 865', dep: '05:00 PM', arr: '07:15 PM', dur: '2h 15m', price: 6200 }
+    ],
+    'BLR-HYD': [
+      { airline: 'IndiGo', no: '6E 7122', dep: '10:15 AM', arr: '11:25 AM', dur: '1h 10m', price: 3800 },
+      { airline: 'Air India', no: 'AI 520', dep: '04:45 PM', arr: '06:00 PM', dur: '1h 15m', price: 4100 }
     ]
   };
 
