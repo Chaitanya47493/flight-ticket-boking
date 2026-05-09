@@ -9,7 +9,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
 
   return (
     <div className="confirmation-container animate-scale-in">
-      <div ref={ticketRef} style={{ padding: '2rem', borderRadius: '1rem', background: 'var(--bg-color)' }}>
+      <div style={{ padding: '2rem', borderRadius: '1rem', background: 'var(--bg-color)' }}>
         <div className="success-icon-wrapper" style={{ margin: '0 auto' }}>
           <Check size={48} />
         </div>

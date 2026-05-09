@@ -18,13 +18,45 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
     <div className="flight-card glass-panel animate-slide-up">
       <div className="flight-main-info">
         <div className="airline-info">
-          <div className="airline-logo">
-            <Plane size={24} className="logo-icon" />
+          <div className="airline-logo" style={{ overflow: 'hidden', background: 'white' }}>
+            {flight.airlineLogo ? (
+              <img src={flight.airlineLogo} alt={flight.airline} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <Plane size={24} className="logo-icon" />
+            )}
           </div>
           <div>
             <div className="airline-name">{flight.airline}</div>
             <div className="flight-number">
               {flight.flightNumber}
+              {flight.terminal && (
+                <span style={{
+                  marginLeft: '0.5rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: '#94a3b8',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  TERMINAL {flight.terminal}
+                </span>
+              )}
+              {flight.source && (
+                <span style={{
+                  marginLeft: '0.5rem',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  color: '#6366f1',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  border: '1px solid rgba(99, 102, 241, 0.2)'
+                }}>
+                  {flight.source.toUpperCase()}
+                </span>
+              )}
               {tripType === 'roundtrip' && (
                 <span style={{
                   marginLeft: '0.5rem',
@@ -55,7 +87,9 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
             <div className="duration-line">
               <Plane size={14} className="duration-plane" />
             </div>
-            <span>{flight.stops === 0 ? 'Direct' : `${flight.stops} Stop(s)`}</span>
+            <span style={{ fontSize: flight.routePath && flight.routePath !== 'Direct' ? '0.75rem' : 'inherit', fontWeight: flight.routePath && flight.routePath !== 'Direct' ? '600' : 'normal', color: flight.routePath && flight.routePath !== 'Direct' ? '#f59e0b' : 'inherit' }}>
+              {flight.stops === 0 ? 'Direct' : `${flight.stops} Stop(s)${flight.routePath ? ` • ${flight.routePath}` : ''}`}
+            </span>
           </div>
           
           <div className="time-block">

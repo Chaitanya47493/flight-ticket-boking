@@ -183,6 +183,10 @@ const SearchForm = ({ onSearch }) => {
       setFormError('Please select both origin and destination airports from the dropdown.');
       return;
     }
+    if (formData.from === formData.to) {
+      setFormError('Origin and destination airports cannot be the same.');
+      return;
+    }
     if (!formData.date || (tripType === 'roundtrip' && !formData.returnDate)) {
       setFormError('Please fill in all required date fields.');
       return;
@@ -202,7 +206,7 @@ const SearchForm = ({ onSearch }) => {
   return (
     <div className="search-container animate-slide-up">
       <h1 className="search-title gradient-text">Where will you go next?</h1>
-      <p className="search-subtitle">Discover premium flights to amazing destinations worldwide.</p>
+      <p className="search-subtitle">Discover premium flights to amazing destinations in India.</p>
 
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
         <button 
@@ -252,6 +256,7 @@ const SearchForm = ({ onSearch }) => {
                 className="input-field"
                 value={formData.date}
                 min={new Date().toLocaleDateString('en-CA')}
+                max="2099-12-31"
                 onChange={handleChange}
                 required
               />
@@ -270,6 +275,7 @@ const SearchForm = ({ onSearch }) => {
                   className="input-field"
                   value={formData.returnDate}
                   min={formData.date || new Date().toLocaleDateString('en-CA')}
+                  max="2099-12-31"
                   onChange={handleChange}
                   required
                 />

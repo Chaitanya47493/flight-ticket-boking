@@ -69,6 +69,69 @@ function App() {
       setBookingId(docRef.id);
 
       // Send Email Ticket (to the passenger's email, not the login account email)
+      const companyLogo = "https://img.icons8.com/nolan/64/airplane-take-off.png"; // Placeholder premium logo
+      
+      const htmlContent = `
+        <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+          <div style="background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); padding: 30px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 1px;">AeroSpace <span style="color: #6366f1;">Bookings</span></h1>
+            <p style="color: #a5b4fc; margin-top: 5px; font-size: 14px;">Your Premium Travel Experience</p>
+          </div>
+          
+          <div style="padding: 40px 30px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h2 style="color: #1e293b; margin: 0 0 10px 0;">Booking Confirmed! ✈️</h2>
+              <p style="color: #64748b; margin: 0; font-size: 16px;">Hi ${finalBookingData.passengers.firstName}, you're all set for your trip.</p>
+            </div>
+
+            <div style="background: #f8fafc; border-radius: 12px; padding: 25px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <img src="${finalBookingData.flight.airlineLogo}" alt="${finalBookingData.flight.airline}" style="height: 40px; object-fit: contain;" />
+                <div style="text-align: right;">
+                  <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Booking Ref</span>
+                  <strong style="color: #6366f1; font-size: 20px; letter-spacing: 2px;">${docRef.id.substring(0, 6).toUpperCase()}</strong>
+                </div>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <tr>
+                  <td style="padding-bottom: 15px; width: 50%;">
+                    <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Flight</span>
+                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.airline} ${finalBookingData.flight.flightNumber}</strong>
+                  </td>
+                  <td style="padding-bottom: 15px; width: 50%;">
+                    <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Class</span>
+                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.selectedClass.name}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 15px;">
+                    <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Departure</span>
+                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.origin}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.departureTime}</div>
+                  </td>
+                  <td style="padding-bottom: 15px;">
+                    <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Arrival</span>
+                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.destination}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.arrivalTime}</div>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="background: #e0e7ff; border-radius: 8px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #3730a3; font-weight: 600;">Total Paid</span>
+              <strong style="color: #312e81; font-size: 20px;">₹${(finalBookingData.selectedClass.price * finalBookingData.searchData.passengers).toLocaleString()}</strong>
+            </div>
+          </div>
+          
+          <div style="background: #f1f5f9; padding: 20px; text-align: center; color: #64748b; font-size: 13px;">
+            <p style="margin: 0;">Thank you for flying with AeroSpace.</p>
+            <p style="margin: 5px 0 0 0;">Safe travels! 🌍</p>
+          </div>
+        </div>
+      `;
+
       const templateParams = {
         email: finalBookingData.passengers.email,
         passenger_name: `${finalBookingData.passengers.firstName} ${finalBookingData.passengers.lastName}`,
@@ -79,7 +142,10 @@ function App() {
         arrival_time: finalBookingData.flight.arrivalTime,
         duration: finalBookingData.flight.duration,
         booking_ref: docRef.id.substring(0, 6).toUpperCase(),
-        total_price: `₹${finalBookingData.selectedClass.price.toLocaleString()}`
+        total_price: `₹${(finalBookingData.selectedClass.price * finalBookingData.searchData.passengers).toLocaleString()}`,
+        airline_logo: finalBookingData.flight.airlineLogo,
+        company_logo: companyLogo,
+        html_ticket: htmlContent
       };
 
       emailjs.send(
