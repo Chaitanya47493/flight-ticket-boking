@@ -4,7 +4,7 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const { departure_id, arrival_id, outbound_date, return_date, currency = 'INR', type = 2 } = req.query;
-  const apiKey = process.env.SERPAPI_KEY;
+  const apiKey = process.env.VITE_SERPAPI_KEY || process.env.SERPAPI_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured' });
