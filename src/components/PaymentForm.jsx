@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { CreditCard, Lock, ArrowLeft } from 'lucide-react';
+import { CreditCard, Lock, ArrowLeft, ShieldCheck, Ticket } from 'lucide-react';
 
-const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
+const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting }) => {
   const [paymentData, setPaymentData] = useState({
     cardNumber: '',
     expiryDate: '',
@@ -10,6 +10,13 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
   });
 
   const [errors, setErrors] = useState({});
+
+  // ── Multi-passenger & Seat pricing calculation ───────────────────
+  const passengerCount = bookingData.searchData?.passengers || (bookingData.passengers?.list?.length) || 1;
+  const basePricePerPerson = bookingData.selectedClass?.price || 0;
+  const flightSubtotal = basePricePerPerson * passengerCount;
+  const seatFeeTotal = bookingData.seatFee || 0;
+  const grandTotal = flightSubtotal + seatFeeTotal;
 
   // ── Validators ──────────────────────────────────────────────────
   const validate = (name, value) => {
@@ -105,7 +112,13 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
       setErrors(newErrors);
       return;
     }
-    onSubmit(paymentData);
+    onSubmit({
+      ...paymentData,
+      totalAmountPaid: grandTotal,
+      passengerCount,
+      baseFare: flightSubtotal,
+      seatFee: seatFeeTotal
+    });
   };
 
   const fieldStyle = (field) => ({
@@ -120,9 +133,11 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
   return (
     <div className="payment-form-container animate-fade-in" style={{ position: 'relative' }}>
       {isSubmitting && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.7)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem' }}>
-          <div style={{ color: 'var(--accent-color)', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Lock className="animate-pulse" /> Processing Payment...
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.85)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem', backdropFilter: 'blur(4px)' }}>
+          <div style={{ color: 'var(--accent-color)', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexDirection: 'column' }}>
+            <Lock className="animate-pulse" size={36} />
+            <span>Processing Secure Payment of ₹{grandTotal.toLocaleString()}...</span>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Generating E-Ticket & Boarding Pass</span>
           </div>
         </div>
       )}
@@ -130,144 +145,171 @@ const PaymentForm = ({ bookingData, onBack, onSubmit, isSubmitting }) => {
       <div className="results-header">
         <div className="results-info">
           <h2>Secure Payment</h2>
-          <p>Please enter your payment details to confirm your booking.</p>
+          <p>Please enter your payment details to confirm your flight reservation.</p>
         </div>
       </div>
 
-      <form className="glass-panel" onSubmit={handlePaymentSubmit}>
-        <div className="form-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 className="form-section-title" style={{ margin: 0 }}>
-              <CreditCard size={20} className="logo-icon" />
-              Card Details
+      <div className="payment-layout">
+        {/* Fare Summary Box */}
+        <div className="glass-panel fare-breakdown-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Ticket size={18} className="logo-icon" /> Fare Summary
             </h3>
-            <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent-color)' }}>
-              Total: ₹{bookingData.selectedClass.price.toLocaleString()}
-            </div>
+            <span style={{ fontSize: '0.8rem', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+              {bookingData.flight?.airline} • {bookingData.selectedClass?.name}
+            </span>
           </div>
 
-          <div className="form-grid">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#94a3b8' }}>Base Fare ({passengerCount} × ₹{basePricePerPerson.toLocaleString()}):</span>
+              <strong>₹{flightSubtotal.toLocaleString()}</strong>
+            </div>
 
-            {/* Card Number */}
-            <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-              <label htmlFor="cardNumber">
-                Card Number
-                <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(16 digits)</span>
-              </label>
-              <input
-                type="text"
-                id="cardNumber"
-                name="cardNumber"
-                className="input-field"
-                style={fieldStyle('cardNumber')}
-                placeholder="0000 0000 0000 0000"
-                value={paymentData.cardNumber}
-                onChange={handleChange}
-                maxLength={19}
-                required
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                {errors.cardNumber
-                  ? <span style={{ fontSize: '0.75rem', color: '#f87171' }}>⚠️ {errors.cardNumber}</span>
-                  : <span />}
-                <span style={{ fontSize: '0.75rem', color: cardDigits.length === 16 ? '#4ade80' : '#64748b' }}>
-                  {cardDigits.length}/16
-                </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#94a3b8' }}>Seat Selection Charges:</span>
+              <strong style={{ color: seatFeeTotal > 0 ? '#38bdf8' : '#4ade80' }}>
+                {seatFeeTotal > 0 ? `+₹${seatFeeTotal.toLocaleString()}` : 'Free'}
+              </strong>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem', marginTop: '0.5rem', fontSize: '1.15rem' }}>
+              <span style={{ fontWeight: 600 }}>Total Amount:</span>
+              <strong style={{ color: '#818cf8', fontSize: '1.3rem' }}>₹{grandTotal.toLocaleString()}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Form */}
+        <form className="glass-panel" onSubmit={handlePaymentSubmit} style={{ padding: '2rem' }}>
+          <div className="form-section">
+            <h3 className="form-section-title" style={{ marginBottom: '1.5rem' }}>
+              <CreditCard size={20} className="logo-icon" />
+              Debit / Credit Card
+            </h3>
+
+            <div className="form-grid">
+              {/* Card Number */}
+              <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                <label htmlFor="cardNumber">
+                  Card Number
+                  <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(16 digits)</span>
+                </label>
+                <input
+                  type="text"
+                  id="cardNumber"
+                  name="cardNumber"
+                  className="input-field"
+                  style={fieldStyle('cardNumber')}
+                  placeholder="0000 0000 0000 0000"
+                  value={paymentData.cardNumber}
+                  onChange={handleChange}
+                  maxLength={19}
+                  required
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                  {errors.cardNumber ? (
+                    <span style={{ fontSize: '0.75rem', color: '#f87171' }}>⚠️ {errors.cardNumber}</span>
+                  ) : <span />}
+                  <span style={{ fontSize: '0.75rem', color: cardDigits.length === 16 ? '#4ade80' : '#64748b' }}>
+                    {cardDigits.length}/16
+                  </span>
+                </div>
+              </div>
+
+              {/* Name on Card */}
+              <div className="input-group">
+                <label htmlFor="nameOnCard">Name on Card</label>
+                <input
+                  type="text"
+                  id="nameOnCard"
+                  name="nameOnCard"
+                  className="input-field"
+                  style={fieldStyle('nameOnCard')}
+                  placeholder="e.g. Rahul Sharma"
+                  value={paymentData.nameOnCard}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.nameOnCard && (
+                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
+                    ⚠️ {errors.nameOnCard}
+                  </span>
+                )}
+              </div>
+
+              {/* Expiry Date */}
+              <div className="input-group">
+                <label htmlFor="expiryDate">Expiry Date</label>
+                <input
+                  type="text"
+                  id="expiryDate"
+                  name="expiryDate"
+                  className="input-field"
+                  style={fieldStyle('expiryDate')}
+                  placeholder="MM/YY"
+                  value={paymentData.expiryDate}
+                  onChange={handleChange}
+                  maxLength={5}
+                  required
+                />
+                {errors.expiryDate && (
+                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
+                    ⚠️ {errors.expiryDate}
+                  </span>
+                )}
+              </div>
+
+              {/* CVV */}
+              <div className="input-group">
+                <label htmlFor="cvv">
+                  CVV
+                  <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(3-4 digits)</span>
+                </label>
+                <input
+                  type="password"
+                  id="cvv"
+                  name="cvv"
+                  className="input-field"
+                  style={fieldStyle('cvv')}
+                  placeholder="•••"
+                  value={paymentData.cvv}
+                  onChange={handleChange}
+                  maxLength={4}
+                  required
+                />
+                {errors.cvv && (
+                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
+                    ⚠️ {errors.cvv}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Name on Card */}
-            <div className="input-group">
-              <label htmlFor="nameOnCard">Name on Card</label>
-              <input
-                type="text"
-                id="nameOnCard"
-                name="nameOnCard"
-                className="input-field"
-                style={fieldStyle('nameOnCard')}
-                placeholder="e.g. Rahul Sharma"
-                value={paymentData.nameOnCard}
-                onChange={handleChange}
-                required
-              />
-              {errors.nameOnCard && (
-                <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                  ⚠️ {errors.nameOnCard}
-                </span>
-              )}
+            {/* Security note */}
+            <div style={{ marginTop: '1.5rem', padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '0.5rem', border: '1px solid rgba(99,102,241,0.2)', fontSize: '0.8rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ShieldCheck size={16} style={{ color: '#4ade80', flexShrink: 0 }} />
+              256-bit SSL encrypted. Simulated safe transaction sandbox.
             </div>
 
-            {/* Expiry Date */}
-            <div className="input-group">
-              <label htmlFor="expiryDate">Expiry Date</label>
-              <input
-                type="text"
-                id="expiryDate"
-                name="expiryDate"
-                className="input-field"
-                style={fieldStyle('expiryDate')}
-                placeholder="MM/YY"
-                value={paymentData.expiryDate}
-                onChange={handleChange}
-                maxLength={5}
-                required
-              />
-              {errors.expiryDate && (
-                <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                  ⚠️ {errors.expiryDate}
-                </span>
-              )}
+            <div className="form-actions" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
+              <button type="button" className="btn-secondary" onClick={onBack} disabled={isSubmitting}>
+                <ArrowLeft size={18} style={{ marginRight: '8px' }} />
+                Back to Seats
+              </button>
+              <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                <Lock size={18} />
+                Pay ₹{grandTotal.toLocaleString()}
+              </button>
             </div>
 
-            {/* CVV */}
-            <div className="input-group">
-              <label htmlFor="cvv">
-                CVV
-                <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(3-4 digits)</span>
-              </label>
-              <input
-                type="password"
-                id="cvv"
-                name="cvv"
-                className="input-field"
-                style={fieldStyle('cvv')}
-                placeholder="•••"
-                value={paymentData.cvv}
-                onChange={handleChange}
-                maxLength={4}
-                required
-              />
-              {errors.cvv && (
-                <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                  ⚠️ {errors.cvv}
-                </span>
-              )}
-            </div>
-
+            <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
+              E-Ticket & official boarding pass will be dispatched to <strong>{bookingData.passengers?.email || userEmail}</strong>.
+            </p>
           </div>
-
-          {/* Security note */}
-          <div style={{ marginTop: '1.5rem', padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '0.5rem', border: '1px solid rgba(99,102,241,0.2)', fontSize: '0.8rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Lock size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
-            Your payment details are encrypted and secure. We do not store your card information.
-          </div>
-
-          <div className="form-actions" style={{ marginTop: '2rem' }}>
-            <button type="button" className="btn-secondary" onClick={onBack} disabled={isSubmitting}>
-              <ArrowLeft size={18} style={{ marginRight: '8px' }} />
-              Back to Passengers
-            </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
-              <Lock size={18} />
-              Pay ₹{bookingData.selectedClass.price.toLocaleString()}
-            </button>
-          </div>
-          {/* Note for EmailJS setup */}
-          <p style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
-            A ticket will be sent to <strong>{bookingData.passengers.email}</strong> upon successful payment.
-          </p>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };

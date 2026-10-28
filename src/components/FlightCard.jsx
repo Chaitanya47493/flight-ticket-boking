@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plane, Clock, Check } from 'lucide-react';
 
-const FlightCard = ({ flight, tripType, onSelectClass }) => {
+const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass }) => {
   const [selectedClass, setSelectedClass] = useState(null);
 
   const handleClassSelect = (cls) => {
@@ -13,6 +13,8 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
       onSelectClass(flight, selectedClass);
     }
   };
+
+  const numPassengers = parseInt(passengers, 10) || 1;
 
   return (
     <div className="flight-card glass-panel animate-slide-up">
@@ -29,6 +31,20 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
             <div className="airline-name">{flight.airline}</div>
             <div className="flight-number">
               {flight.flightNumber}
+              {flight.airplane && (
+                <span style={{
+                  marginLeft: '0.5rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: '#94a3b8',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  {flight.airplane}
+                </span>
+              )}
               {flight.terminal && (
                 <span style={{
                   marginLeft: '0.5rem',
@@ -46,15 +62,18 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
               {flight.source && (
                 <span style={{
                   marginLeft: '0.5rem',
-                  background: 'rgba(99, 102, 241, 0.1)',
-                  color: '#6366f1',
+                  background: flight.source.toLowerCase() === 'live' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.1)',
+                  color: flight.source.toLowerCase() === 'live' ? '#4ade80' : '#818cf8',
                   padding: '2px 8px',
                   borderRadius: '4px',
                   fontSize: '0.65rem',
                   fontWeight: 700,
-                  border: '1px solid rgba(99, 102, 241, 0.2)'
+                  border: flight.source.toLowerCase() === 'live' ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(99, 102, 241, 0.2)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}>
-                  {flight.source.toUpperCase()}
+                  {flight.source.toLowerCase() === 'live' ? '🟢 LIVE FLIGHT' : flight.source.toUpperCase()}
                 </span>
               )}
               {tripType === 'roundtrip' && (
@@ -108,8 +127,20 @@ const FlightCard = ({ flight, tripType, onSelectClass }) => {
           >
             <div className="class-name">{cls.name}</div>
             <div className="class-price">
-              ₹{cls.price.toLocaleString()}
-              {tripType === 'roundtrip' && <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal', marginTop: '2px' }}>Total for round trip</div>}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '1.35rem', fontWeight: 800 }}>₹{cls.price.toLocaleString()}</span>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>/ person</span>
+              </div>
+              {numPassengers > 1 && (
+                <div style={{ fontSize: '0.75rem', color: '#a5b4fc', marginTop: '3px', fontWeight: 600 }}>
+                  ₹{(cls.price * numPassengers).toLocaleString()} total ({numPassengers} travelers)
+                </div>
+              )}
+              {tripType === 'roundtrip' && (
+                <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 500, marginTop: '2px' }}>
+                  Round trip included
+                </div>
+              )}
             </div>
             <div className="class-features">
               {cls.features.map(f => (

@@ -6,7 +6,7 @@ const Header = ({ onMyBookingsClick, onLogoClick, user, onLoginClick, onLogout }
     <header className="header animate-fade-in">
       <div className="logo" onClick={onLogoClick} style={{ cursor: 'pointer' }}>
         <PlaneTakeoff className="logo-icon" size={32} />
-        <span>AeroSpace</span>
+        <span>Aero Space</span>
       </div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <button className="btn-secondary" onClick={onMyBookingsClick}>My Bookings</button>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapPin, Calendar, Users, Search } from 'lucide-react';
+import { MapPin, Calendar, Users, Search, ArrowLeftRight, Sparkles } from 'lucide-react';
 import iataMap from '../utils/airports.json';
 
 // Build a searchable list from the airports.json
@@ -7,6 +7,15 @@ const airportList = Object.entries(iataMap).map(([city, code]) => ({
   city: city.charAt(0).toUpperCase() + city.slice(1),
   code
 }));
+
+const POPULAR_ROUTES = [
+  { from: 'DEL', to: 'BOM', label: 'Delhi ⇄ Mumbai' },
+  { from: 'BLR', to: 'DEL', label: 'Bengaluru ⇄ Delhi' },
+  { from: 'BOM', to: 'GOI', label: 'Mumbai ⇄ Goa' },
+  { from: 'HYD', to: 'MAA', label: 'Hyderabad ⇄ Chennai' },
+  { from: 'BLR', to: 'HYD', label: 'Bengaluru ⇄ Hyderabad' },
+  { from: 'DEL', to: 'CCU', label: 'Delhi ⇄ Kolkata' },
+];
 
 const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
   // displayValue = what user sees while typing; value (IATA code) = what is stored
@@ -16,11 +25,17 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
   const [isSelected, setIsSelected] = useState(false); // true only after picking from dropdown
   const wrapperRef = useRef(null);
 
-  // Sync display when external value is cleared (e.g. form reset)
+  // Sync display when external value changes (e.g. form reset, swap, or popular route click)
   useEffect(() => {
     if (!value) {
       setDisplayValue('');
       setIsSelected(false);
+    } else {
+      const match = airportList.find(a => a.code.toUpperCase() === value.toUpperCase());
+      if (match) {
+        setDisplayValue(`${match.city} (${match.code})`);
+        setIsSelected(true);
+      }
     }
   }, [value]);
 
@@ -101,17 +116,19 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
         />
       </div>
 
-      {/* Validation hint */}
-      {displayValue.length > 0 && !isSelected && (
-        <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px', display: 'block' }}>
-          ⚠️ Please select a city from the list
-        </span>
-      )}
-      {isSelected && (
-        <span style={{ fontSize: '0.75rem', color: '#4ade80', marginTop: '4px', display: 'block' }}>
-          ✓ Airport selected
-        </span>
-      )}
+      {/* Validation hint with fixed min-height to prevent layout jump */}
+      <div style={{ minHeight: '20px', marginTop: '4px' }}>
+        {displayValue.length > 0 && !isSelected && (
+          <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'block' }}>
+            ⚠️ Please select a city from the list
+          </span>
+        )}
+        {isSelected && (
+          <span style={{ fontSize: '0.75rem', color: '#4ade80', display: 'block' }}>
+            ✓ Airport selected
+          </span>
+        )}
+      </div>
 
       {showDropdown && (
         <div style={{
@@ -129,7 +146,7 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
         }}>
           {suggestions.map((airport) => (
             <div
-              key={airport.code}
+              key={`${airport.city}-${airport.code}`}
               onMouseDown={() => handleSelect(airport)}
               style={{
                 padding: '0.75rem 1rem',
@@ -164,6 +181,7 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
 const SearchForm = ({ onSearch }) => {
   const [tripType, setTripType] = useState('oneway');
   const [formError, setFormError] = useState('');
+  const [isSwapping, setIsSwapping] = useState(false);
   const [formData, setFormData] = useState({
     from: '',
     to: '',
@@ -174,6 +192,25 @@ const SearchForm = ({ onSearch }) => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSwap = () => {
+    setIsSwapping(true);
+    setFormData(prev => ({
+      ...prev,
+      from: prev.to,
+      to: prev.from
+    }));
+    setTimeout(() => setIsSwapping(false), 300);
+  };
+
+  const handleSelectRoute = (route) => {
+    setFormData(prev => ({
+      ...prev,
+      from: route.from,
+      to: route.to
+    }));
+    setFormError('');
   };
 
   const handleSubmit = (e) => {
@@ -200,7 +237,7 @@ const SearchForm = ({ onSearch }) => {
       setFormError('Return date cannot be before the departure date.');
       return;
     }
-    onSearch({ ...formData, tripType });
+    onSearch({ ...formData, tripType, passengers: parseInt(formData.passengers, 10) || 1 });
   };
 
   return (
@@ -210,6 +247,7 @@ const SearchForm = ({ onSearch }) => {
 
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
         <button 
+          type="button"
           className={`btn-secondary ${tripType === 'oneway' ? 'active-tab' : ''}`}
           onClick={() => setTripType('oneway')}
           style={{ background: tripType === 'oneway' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'oneway' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
@@ -217,6 +255,7 @@ const SearchForm = ({ onSearch }) => {
           One Way
         </button>
         <button 
+          type="button"
           className={`btn-secondary ${tripType === 'roundtrip' ? 'active-tab' : ''}`}
           onClick={() => setTripType('roundtrip')}
           style={{ background: tripType === 'roundtrip' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'roundtrip' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
@@ -225,25 +264,43 @@ const SearchForm = ({ onSearch }) => {
         </button>
       </div>
 
-      <form className="glass-panel" style={{ padding: '2rem' }} onSubmit={handleSubmit}>
-        <div className="search-grid">
-          <AirportInput
-            id="from"
-            name="from"
-            label="Leaving from"
-            value={formData.from}
-            onChange={handleChange}
-            placeholder="City or Airport (e.g. DEL)"
-          />
+      <form className="glass-panel" style={{ padding: '2.25rem 2rem 2.75rem' }} onSubmit={handleSubmit}>
+        <div className="search-grid" style={{ position: 'relative' }}>
+          <div className="airport-row-wrapper">
+            <div className="airport-col">
+              <AirportInput
+                id="from"
+                name="from"
+                label="Leaving from"
+                value={formData.from}
+                onChange={handleChange}
+                placeholder="City or Airport (e.g. DEL)"
+              />
+            </div>
 
-          <AirportInput
-            id="to"
-            name="to"
-            label="Going to"
-            value={formData.to}
-            onChange={handleChange}
-            placeholder="City or Airport (e.g. BOM)"
-          />
+            <div className="swap-btn-container">
+              <button
+                type="button"
+                className={`swap-btn ${isSwapping ? 'swapping' : ''}`}
+                onClick={handleSwap}
+                title="Swap Origin & Destination"
+                aria-label="Swap departure and arrival airports"
+              >
+                <ArrowLeftRight size={18} />
+              </button>
+            </div>
+
+            <div className="airport-col">
+              <AirportInput
+                id="to"
+                name="to"
+                label="Going to"
+                value={formData.to}
+                onChange={handleChange}
+                placeholder="City or Airport (e.g. BOM)"
+              />
+            </div>
+          </div>
 
           <div className="input-group">
             <label htmlFor="date">Departure Date</label>
@@ -302,6 +359,29 @@ const SearchForm = ({ onSearch }) => {
           </div>
         </div>
 
+        {/* Popular Routes Quick-Picks */}
+        <div className="popular-routes-section">
+          <div className="popular-routes-title">
+            <Sparkles size={14} style={{ color: '#a5b4fc' }} />
+            <span>Popular Routes:</span>
+          </div>
+          <div className="popular-chips">
+            {POPULAR_ROUTES.map((route) => {
+              const isActive = formData.from === route.from && formData.to === route.to;
+              return (
+                <button
+                  type="button"
+                  key={`${route.from}-${route.to}`}
+                  className={`popular-chip ${isActive ? 'active' : ''}`}
+                  onClick={() => handleSelectRoute(route)}
+                >
+                  {route.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {formError && (
           <div style={{
             background: 'rgba(239,68,68,0.1)',
@@ -310,7 +390,7 @@ const SearchForm = ({ onSearch }) => {
             padding: '0.75rem 1rem',
             borderRadius: '10px',
             fontSize: '0.875rem',
-            marginTop: '0.5rem',
+            marginTop: '1rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem'
