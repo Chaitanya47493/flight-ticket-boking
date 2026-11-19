@@ -15,6 +15,17 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import emailjs from '@emailjs/browser';
 import './App.css';
 
+// Helper: Sanitize user text before embedding into HTML emails to prevent HTML injection
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // Initialize EmailJS with public key
 emailjs.init("twDo3sgI5ca605MeZ");
 
@@ -109,6 +120,18 @@ function App() {
         ? finalBookingData.passengers.list.map(p => `${p.firstName} ${p.lastName}`).join(', ')
         : `${finalBookingData.passengers?.firstName || ''} ${finalBookingData.passengers?.lastName || ''}`;
 
+      const cleanFirstName = escapeHtml(finalBookingData.passengers?.firstName || 'Traveler');
+      const cleanPassengerNames = escapeHtml(passengerNamesStr);
+      const cleanFlightAirline = escapeHtml(finalBookingData.flight.airline);
+      const cleanFlightNumber = escapeHtml(finalBookingData.flight.flightNumber);
+      const cleanOrigin = escapeHtml(finalBookingData.flight.origin);
+      const cleanDestination = escapeHtml(finalBookingData.flight.destination);
+      const cleanDepTime = escapeHtml(finalBookingData.flight.departureTime);
+      const cleanArrTime = escapeHtml(finalBookingData.flight.arrivalTime);
+      const cleanClassName = escapeHtml(finalBookingData.selectedClass?.name || 'Economy');
+      const cleanSeats = escapeHtml(assignedSeatsStr);
+      const bookingRef = escapeHtml(docRef.id.substring(0, 6).toUpperCase());
+
       const companyLogo = "https://img.icons8.com/nolan/64/airplane-take-off.png";
       
       const htmlContent = `
@@ -121,15 +144,15 @@ function App() {
           <div style="padding: 40px 30px;">
             <div style="text-align: center; margin-bottom: 30px;">
               <h2 style="color: #1e293b; margin: 0 0 10px 0;">Booking Confirmed! ✈️</h2>
-              <p style="color: #64748b; margin: 0; font-size: 16px;">Hi ${finalBookingData.passengers.firstName}, you're all set for your trip.</p>
+              <p style="color: #64748b; margin: 0; font-size: 16px;">Hi ${cleanFirstName}, you're all set for your trip.</p>
             </div>
 
             <div style="background: #f8fafc; border-radius: 12px; padding: 25px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <img src="${finalBookingData.flight.airlineLogo}" alt="${finalBookingData.flight.airline}" style="height: 40px; object-fit: contain;" />
+                <img src="${finalBookingData.flight.airlineLogo}" alt="${cleanFlightAirline}" style="height: 40px; object-fit: contain;" />
                 <div style="text-align: right;">
                   <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Booking Ref</span>
-                  <strong style="color: #6366f1; font-size: 20px; letter-spacing: 2px;">${docRef.id.substring(0, 6).toUpperCase()}</strong>
+                  <strong style="color: #6366f1; font-size: 20px; letter-spacing: 2px;">${bookingRef}</strong>
                 </div>
               </div>
 
@@ -137,29 +160,29 @@ function App() {
                 <tr>
                   <td style="padding-bottom: 15px; width: 50%;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Flight</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.airline} ${finalBookingData.flight.flightNumber}</strong>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanFlightAirline} ${cleanFlightNumber}</strong>
                   </td>
                   <td style="padding-bottom: 15px; width: 50%;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Class & Seats</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.selectedClass.name} (Seats: ${assignedSeatsStr})</strong>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanClassName} (Seats: ${cleanSeats})</strong>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding-bottom: 15px;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Departure</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.origin}</strong>
-                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.departureTime}</div>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanOrigin}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${cleanDepTime}</div>
                   </td>
                   <td style="padding-bottom: 15px;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Arrival</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.destination}</strong>
-                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.arrivalTime}</div>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanDestination}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${cleanArrTime}</div>
                   </td>
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 10px; border-top: 1px solid #e2e8f0;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Passengers (${passengerCount})</span>
-                    <strong style="color: #0f172a; font-size: 15px;">${passengerNamesStr}</strong>
+                    <strong style="color: #0f172a; font-size: 15px;">${cleanPassengerNames}</strong>
                   </td>
                 </tr>
               </table>
@@ -178,7 +201,8 @@ function App() {
         </div>
       `;
 
-      const recipientEmail = finalBookingData.passengers?.email || user.email;
+      // Prevent open email relay abuse: Always deliver to the verified authenticated user's email
+      const recipientEmail = user.email;
 
       const templateParams = {
         email: recipientEmail,
