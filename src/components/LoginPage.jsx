@@ -22,6 +22,18 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     setResetSent(false);
+
+    if (!isLogin) {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long.');
+        return;
+      }
+      if (!/(?=.*[a-zA-Z])(?=.*[0-9])/.test(password)) {
+        setError('Password must contain at least one letter and one number.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (isLogin) {
