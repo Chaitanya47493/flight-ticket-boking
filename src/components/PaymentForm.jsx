@@ -112,12 +112,21 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
       setErrors(newErrors);
       return;
     }
+    const digitsOnly = paymentData.cardNumber.replace(/\D/g, '');
+    const last4 = digitsOnly.slice(-4) || '1234';
+    const cardBrand = digitsOnly.startsWith('4') ? 'Visa' : digitsOnly.startsWith('5') ? 'Mastercard' : 'Card';
+
     onSubmit({
-      ...paymentData,
+      cardLast4: last4,
+      cardBrand,
+      maskedCardNumber: `•••• •••• •••• ${last4}`,
+      nameOnCard: paymentData.nameOnCard.trim(),
       totalAmountPaid: grandTotal,
       passengerCount,
       baseFare: flightSubtotal,
-      seatFee: seatFeeTotal
+      seatFee: seatFeeTotal,
+      paymentMethod: 'card_simulation',
+      status: 'completed'
     });
   };
 

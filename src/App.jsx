@@ -78,10 +78,21 @@ function App() {
     const basePrice = bookingData.selectedClass?.price || 0;
     const calculatedTotal = (basePrice * passengerCount) + (bookingData.seatFee || 0);
 
+    // Defense-in-depth: Ensure no sensitive raw card/CVV data can ever reach storage
+    const sanitizedPayment = {
+      cardLast4: paymentData.cardLast4 || (paymentData.cardNumber ? paymentData.cardNumber.replace(/\D/g, '').slice(-4) : '1234'),
+      cardBrand: paymentData.cardBrand || 'Card',
+      maskedCardNumber: paymentData.maskedCardNumber || `•••• •••• •••• ${paymentData.cardLast4 || '1234'}`,
+      nameOnCard: paymentData.nameOnCard || '',
+      totalAmountPaid: calculatedTotal,
+      paymentMethod: 'card_simulation',
+      status: 'completed'
+    };
+
     const finalBookingData = {
       ...bookingData,
-      payment: paymentData,
-      totalAmountPaid: paymentData.totalAmountPaid || calculatedTotal,
+      payment: sanitizedPayment,
+      totalAmountPaid: calculatedTotal,
       userId: user.uid,
       createdAt: new Date()
     };
