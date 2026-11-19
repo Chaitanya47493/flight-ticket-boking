@@ -228,13 +228,14 @@ function App() {
         "template_ticket",
         templateParams
       ).then(
-        (response) => console.log('Email sent successfully!', response.status, response.text),
-        (error) => console.error('Failed to send email:', error)
+        (response) => {
+          if (import.meta.env.DEV) console.log('Email sent successfully!', response.status);
+        },
+        () => {}
       );
 
       setCurrentStep(6);
-    } catch (e) {
-      console.error('Error adding document: ', e);
+    } catch {
       alert('Failed to save booking. Please try again.');
     } finally {
       setIsSubmitting(false);

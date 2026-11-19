@@ -303,7 +303,9 @@ export const fetchFlights = async (searchData) => {
         const flightsData = [...bestFlights, ...otherFlights];
           
           if (flightsData.length > 0) {
-            console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`);
+            if (import.meta.env.DEV) {
+              console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`);
+            }
             return flightsData.map((result, index) => {
               const firstFlight = result.flights[0];
               const lastFlight = result.flights[result.flights.length - 1];
@@ -355,11 +357,13 @@ export const fetchFlights = async (searchData) => {
           }
         }
       }
-    } catch (e) {
-      console.warn('Google Flights API Fetch Error, falling back to smart schedule:', e.message);
+    } catch {
+      // Fallback silently in production
     }
 
   // Fallback to Smart Verified Schedule
-  console.log(`[Schedule Fallback] Using smart schedule fallback for ${origin} → ${dest}`);
+  if (import.meta.env.DEV) {
+    console.log(`[Schedule Fallback] Using smart schedule fallback for ${origin} → ${dest}`);
+  }
   return getSmartLocalFallback(searchData, origin, dest);
 };
