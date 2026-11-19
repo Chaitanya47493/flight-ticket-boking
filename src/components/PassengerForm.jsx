@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { User, Phone, Mail, ArrowRight, ArrowLeft, Users, ShieldCheck } from 'lucide-react';
+import { User, Phone, Mail, ArrowRight, ArrowLeft } from 'lucide-react';
 
-const PassengerForm = ({ selectedFlight, searchData, onBack, onSubmit }) => {
+const PassengerForm = ({ searchData, onBack, onSubmit }) => {
   const passengerCount = searchData?.passengers || 1;
 
   // Initialize array of passengers based on count

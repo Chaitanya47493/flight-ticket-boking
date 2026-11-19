@@ -41,7 +41,7 @@ const getIataCode = (input) => {
 };
 
 // Time extraction helpers
-export const parseAirportTime = (timeStr, fallbackHour = 10) => {
+const parseAirportTime = (timeStr, fallbackHour = 10) => {
   if (!timeStr) return `${fallbackHour.toString().padStart(2, '0')}:00 AM`;
   const timePart = timeStr.includes(' ') ? timeStr.split(' ')[1] : timeStr;
   const [hStr, mStr] = timePart.split(':');
@@ -53,7 +53,7 @@ export const parseAirportTime = (timeStr, fallbackHour = 10) => {
   return `${h12.toString().padStart(2, '0')}:${m} ${ampm}`;
 };
 
-export const getMinutesFromTimeStr = (timeStr) => {
+const getMinutesFromTimeStr = (timeStr) => {
   if (!timeStr) return 600; // default 10:00 AM (600 mins)
   const timePart = timeStr.includes(' ') ? timeStr.split(' ')[1] : timeStr;
   const [hStr, mStr] = timePart.split(':');
@@ -62,7 +62,7 @@ export const getMinutesFromTimeStr = (timeStr) => {
   return h * 60 + m;
 };
 
-export const getAvailableClassesForFlight = (airlineName, origin, dest, basePrice = 5000) => {
+const getAvailableClassesForFlight = (airlineName, origin, dest, basePrice = 5000) => {
   const normAirline = (airlineName || '').toLowerCase();
   const normOrigin = (origin || '').toUpperCase();
   const normDest = (dest || '').toUpperCase();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Home, Ticket, Download, ArrowRight } from 'lucide-react';
+import { Check, Home, Ticket } from 'lucide-react';
 import BoardingPassModal from './BoardingPassModal';
 
 // bookingId is the real Firestore document ID passed from App.jsx

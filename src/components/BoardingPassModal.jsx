@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Printer, Download, Plane, QrCode, ShieldCheck } from 'lucide-react';
+import { X, Printer, Plane, QrCode, ShieldCheck } from 'lucide-react';
 
 const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
   if (!isOpen || !bookingData) return null;

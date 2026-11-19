@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plane, ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield } from 'lucide-react';
 
 const SEAT_LETTERS_BUSINESS = ['A', 'C', 'D', 'F'];
 const SEAT_LETTERS_ECONOMY = ['A', 'B', 'C', 'D', 'E', 'F'];
