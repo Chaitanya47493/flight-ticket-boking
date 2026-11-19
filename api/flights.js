@@ -67,7 +67,7 @@ export default async function handler(req, res) {
     const response = await fetch(targetUrl.toString());
     const data = await response.json();
     return res.status(200).json(data);
-  } catch (err) {
+  } catch {
     return res.status(502).json({ error: 'Failed to retrieve flight data from upstream service' });
   }
 }
