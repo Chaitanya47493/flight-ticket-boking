@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Lock, ArrowLeft, ShieldCheck, Ticket, Utensils, Luggage, Shield, Tag, Check, X } from 'lucide-react';
+import { CreditCard, Lock, ArrowLeft, ShieldCheck, Ticket, Utensils, Luggage, Shield, Tag, Check, X, AlertCircle } from 'lucide-react';
 
 const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting }) => {
   const [paymentData, setPaymentData] = useState({
@@ -263,30 +263,32 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
                 onClick={() => setMealOption('veg')}
                 style={{
                   padding: '6px 12px',
-                  borderRadius: '6px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '0.8rem',
-                  border: mealOption === 'veg' ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.1)',
-                  background: mealOption === 'veg' ? 'rgba(34,197,94,0.2)' : 'transparent',
-                  color: mealOption === 'veg' ? '#4ade80' : '#94a3b8',
+                  fontWeight: 600,
+                  border: mealOption === 'veg' ? '1px solid var(--success-color)' : '1px solid var(--surface-border)',
+                  background: mealOption === 'veg' ? 'var(--success-bg)' : 'var(--surface-color)',
+                  color: mealOption === 'veg' ? 'var(--success-color)' : 'var(--text-secondary)',
                   cursor: 'pointer'
                 }}
               >
-                🥗 Veg (₹350/pax)
+                Veg (₹350/pax)
               </button>
               <button
                 type="button"
                 onClick={() => setMealOption('non-veg')}
                 style={{
                   padding: '6px 12px',
-                  borderRadius: '6px',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '0.8rem',
-                  border: mealOption === 'non-veg' ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
-                  background: mealOption === 'non-veg' ? 'rgba(239,68,68,0.2)' : 'transparent',
-                  color: mealOption === 'non-veg' ? '#f87171' : '#94a3b8',
+                  fontWeight: 600,
+                  border: mealOption === 'non-veg' ? '1px solid var(--danger-color)' : '1px solid var(--surface-border)',
+                  background: mealOption === 'non-veg' ? 'var(--danger-bg)' : 'var(--surface-color)',
+                  color: mealOption === 'non-veg' ? 'var(--danger-color)' : 'var(--text-secondary)',
                   cursor: 'pointer'
                 }}
               >
-                🍗 Non-Veg (₹450/pax)
+                Non-Veg (₹450/pax)
               </button>
             </div>
           </div>
@@ -406,9 +408,9 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
             </div>
 
             {/* Grand Total */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem', marginTop: '0.4rem', fontSize: '1.15rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--surface-border)', paddingTop: '0.75rem', marginTop: '0.4rem', fontSize: '1.15rem' }}>
               <span style={{ fontWeight: 600 }}>Grand Total:</span>
-              <strong style={{ color: '#818cf8', fontSize: '1.35rem' }}>₹{grandTotal.toLocaleString()}</strong>
+              <strong style={{ color: 'var(--accent-color)', fontSize: '1.35rem', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>₹{grandTotal.toLocaleString()}</strong>
             </div>
           </div>
 
@@ -516,9 +518,12 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                   {errors.cardNumber ? (
-                    <span style={{ fontSize: '0.75rem', color: '#f87171' }}>⚠️ {errors.cardNumber}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--danger-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} />
+                      <span>{errors.cardNumber}</span>
+                    </span>
                   ) : <span />}
-                  <span style={{ fontSize: '0.75rem', color: cardDigits.length === 16 ? '#4ade80' : '#64748b' }}>
+                  <span style={{ fontSize: '0.75rem', color: cardDigits.length === 16 ? 'var(--success-color)' : 'var(--text-muted)' }}>
                     {cardDigits.length}/16
                   </span>
                 </div>
@@ -539,8 +544,9 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
                   required
                 />
                 {errors.nameOnCard && (
-                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                    ⚠️ {errors.nameOnCard}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--danger-color)', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} />
+                    <span>{errors.nameOnCard}</span>
                   </span>
                 )}
               </div>
@@ -561,8 +567,9 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
                   required
                 />
                 {errors.expiryDate && (
-                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                    ⚠️ {errors.expiryDate}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--danger-color)', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} />
+                    <span>{errors.expiryDate}</span>
                   </span>
                 )}
               </div>
@@ -571,7 +578,7 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
               <div className="input-group">
                 <label htmlFor="cvv">
                   CVV
-                  <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(3-4 digits)</span>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.4rem' }}>(3-4 digits)</span>
                 </label>
                 <input
                   type="password"
@@ -586,17 +593,18 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
                   required
                 />
                 {errors.cvv && (
-                  <span style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '4px' }}>
-                    ⚠️ {errors.cvv}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--danger-color)', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} />
+                    <span>{errors.cvv}</span>
                   </span>
                 )}
               </div>
             </div>
 
             {/* Security note */}
-            <div style={{ marginTop: '1.5rem', padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '0.5rem', border: '1px solid rgba(99,102,241,0.2)', fontSize: '0.8rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ShieldCheck size={16} style={{ color: '#4ade80', flexShrink: 0 }} />
-              256-bit SSL encrypted. Simulated safe transaction sandbox.
+            <div style={{ marginTop: '1.25rem', padding: '0.625rem 0.875rem', background: 'var(--surface-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ShieldCheck size={16} style={{ color: 'var(--success-color)', flexShrink: 0 }} />
+              <span>256-bit SSL encrypted. Simulated safe transaction sandbox.</span>
             </div>
 
             <div className="form-actions" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>

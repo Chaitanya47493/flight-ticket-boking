@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, getDocs, where, doc, updateDoc, arrayRemove } from 'firebase/firestore';
-import { Loader2, Calendar, MapPin, Ticket, Printer, Armchair, Search, X, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Calendar, MapPin, Ticket, Printer, Armchair, Search, X, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Radar } from 'lucide-react';
 import BoardingPassModal from './BoardingPassModal';
 
-const MyBookings = ({ user }) => {
+const MyBookings = ({ user, onTrackFlight, initialPnr = '' }) => {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialPnr);
+  const [prevInitialPnr, setPrevInitialPnr] = useState(initialPnr);
   const [selectedBookingForPass, setSelectedBookingForPass] = useState(null);
+
+  // Sync initial PNR query if navigated from Home Manage Trip
+  if (initialPnr !== prevInitialPnr) {
+    setPrevInitialPnr(initialPnr);
+    if (initialPnr) {
+      setSearchQuery(initialPnr);
+    }
+  }
 
   // Cancellation Modal state
   const [bookingToCancel, setBookingToCancel] = useState(null);
@@ -142,13 +151,13 @@ const MyBookings = ({ user }) => {
   }
 
   return (
-    <div className="animate-fade-in" style={{ padding: '2rem 0' }}>
+    <div className="animate-fade-in" style={{ padding: '1.5rem 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '2rem', margin: 0 }} className="gradient-text">My Bookings</h2>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>My Bookings</h2>
 
         {/* PNR & City Search Bar */}
         <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             value={searchQuery}
@@ -156,12 +165,12 @@ const MyBookings = ({ user }) => {
             placeholder="Search by 6-char PNR or city..."
             style={{
               width: '100%',
-              padding: '10px 36px 10px 38px',
-              background: 'rgba(30, 41, 59, 0.6)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              color: '#fff',
-              fontSize: '0.88rem'
+              padding: '8px 36px 8px 36px',
+              background: 'var(--surface-color)',
+              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)',
+              fontSize: '0.875rem'
             }}
           />
           {searchQuery && (
@@ -257,6 +266,28 @@ const MyBookings = ({ user }) => {
                     >
                       <Printer size={15} />
                       Boarding Pass
+                    </button>
+
+                    {/* Track in AeroRadar Button */}
+                    <button
+                      type="button"
+                      onClick={() => onTrackFlight && onTrackFlight(booking)}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        background: 'var(--accent-subtle)',
+                        color: 'var(--accent-color)',
+                        border: '1px solid var(--accent-color)',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Radar size={15} style={{ color: 'var(--accent-color)' }} />
+                      Track in AeroRadar
                     </button>
 
                     {/* Cancel Booking Button */}
@@ -408,8 +439,9 @@ const MyBookings = ({ user }) => {
               })()}
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 1.5rem 0' }}>
-              ⚠️ Your assigned seats will be released immediately into the real-time flight inventory for other travelers.
+            <p style={{ fontSize: '0.8125rem', color: 'var(--warning-color)', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} />
+              <span>Your assigned seats will be released immediately into the real-time flight inventory for other travelers.</span>
             </p>
 
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>

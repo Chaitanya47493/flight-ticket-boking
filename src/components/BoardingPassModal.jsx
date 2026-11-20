@@ -1,13 +1,22 @@
-import { useState } from 'react';
-import { X, Printer, Plane, QrCode, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  X, Printer, Plane, QrCode, ShieldCheck, AlertCircle, RotateCcw, 
+  Wind, Eye, ShieldAlert, CheckCircle2, AlertTriangle, Activity 
+} from 'lucide-react';
+import { fetchRouteWeather, predictDelayRisk } from '../utils/weatherRisk';
 
 const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
   const [activePassengerIndex, setActivePassengerIndex] = useState(0);
   const [activeLeg, setActiveLeg] = useState('outbound');
+  const [routeWeather, setRouteWeather] = useState(null);
 
-  if (!isOpen || !bookingData) return null;
+  const flight = bookingData?.flight;
+  const selectedClass = bookingData?.selectedClass;
+  const passengers = bookingData?.passengers;
+  const selectedSeats = bookingData?.selectedSeats;
+  const searchData = bookingData?.searchData;
+  const status = bookingData?.status;
 
-  const { flight, selectedClass, passengers, selectedSeats, searchData, status } = bookingData;
   const isCancelled = status === 'CANCELLED';
   const isRoundTrip = searchData?.tripType === 'roundtrip' && (!!searchData?.returnDate || !!selectedSeats?.return);
 
@@ -37,6 +46,24 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
     ? (selectedSeats?.return?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}C`)
     : (selectedSeats?.outbound?.[activePassengerIndex]?.id || selectedSeats?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}A`);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && legOriginIata && legDestIata) {
+      fetchRouteWeather(legOriginIata, legDestIata)
+        .then(data => {
+          if (isMounted) setRouteWeather(data);
+        })
+        .catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, [isOpen, legOriginIata, legDestIata]);
+
+  const legRisk = routeWeather 
+    ? predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, flight?.stops || 0)
+    : { level: 'Low', score: 12, reason: 'Normal operations with calm airspace' };
+
+  if (!isOpen || !bookingData) return null;
+
   const handlePrint = () => {
     window.print();
   };
@@ -65,17 +92,22 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
         {/* Cancellation Notice Banner */}
         {isCancelled && (
           <div className="no-print" style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            color: '#f87171',
-            borderRadius: '8px',
-            padding: '0.65rem 1rem',
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-color)',
+            color: 'var(--danger-color)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.625rem 1rem',
             marginBottom: '1rem',
-            fontSize: '0.88rem',
+            fontSize: '0.8125rem',
             textAlign: 'center',
-            fontWeight: 600
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem'
           }}>
-            ⛔ THIS BOOKING HAS BEEN CANCELLED. Boarding pass is VOID and not valid for flight check-in or gate entry.
+            <AlertCircle size={16} />
+            <span>THIS BOOKING HAS BEEN CANCELLED. Boarding pass is VOID and not valid for flight check-in or gate entry.</span>
           </div>
         )}
 
@@ -86,33 +118,41 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
               type="button"
               onClick={() => setActiveLeg('outbound')}
               style={{
-                padding: '0.45rem 1.1rem',
-                fontSize: '0.85rem',
+                padding: '0.45rem 1rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
-                border: activeLeg === 'outbound' ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.12)',
-                background: activeLeg === 'outbound' ? 'rgba(99,102,241,0.25)' : 'rgba(30,41,59,0.5)',
-                color: activeLeg === 'outbound' ? '#818cf8' : '#94a3b8'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                border: activeLeg === 'outbound' ? '1px solid var(--accent-color)' : '1px solid var(--surface-border)',
+                background: activeLeg === 'outbound' ? 'var(--accent-subtle)' : 'var(--surface-color)',
+                color: activeLeg === 'outbound' ? 'var(--accent-color)' : 'var(--text-secondary)'
               }}
             >
-              🛫 Outbound: {flight?.origin} → {flight?.destination}
+              <Plane size={14} />
+              <span>Outbound: {flight?.origin} → {flight?.destination}</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveLeg('return')}
               style={{
-                padding: '0.45rem 1.1rem',
-                fontSize: '0.85rem',
+                padding: '0.45rem 1rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer',
-                border: activeLeg === 'return' ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.12)',
-                background: activeLeg === 'return' ? 'rgba(99,102,241,0.25)' : 'rgba(30,41,59,0.5)',
-                color: activeLeg === 'return' ? '#818cf8' : '#94a3b8'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                border: activeLeg === 'return' ? '1px solid var(--accent-color)' : '1px solid var(--surface-border)',
+                background: activeLeg === 'return' ? 'var(--accent-subtle)' : 'var(--surface-color)',
+                color: activeLeg === 'return' ? 'var(--accent-color)' : 'var(--text-secondary)'
               }}
             >
-              🔄 Return: {flight?.destination} → {flight?.origin}
+              <RotateCcw size={14} />
+              <span>Return: {flight?.destination} → {flight?.origin}</span>
             </button>
           </div>
         )}
@@ -241,6 +281,52 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
               <div className="detail-item">
                 <span className="detail-label">BOOKING REF (PNR)</span>
                 <strong className="detail-value pnr-text">{bookingRef}</strong>
+              </div>
+            </div>
+
+            {/* Live Weather & Delay Status Section */}
+            <div className="pass-weather-status-strip">
+              <div className="pass-weather-header">
+                <span className="pwh-title">
+                  <Activity size={12} style={{ color: '#4338ca' }} />
+                  <span>LIVE FLIGHT DISPATCH & WEATHER TELEMETRY</span>
+                </span>
+                <span className={`pass-risk-pill risk-${legRisk.level.toLowerCase()}`}>
+                  {legRisk.level === 'Low' && <CheckCircle2 size={11} />}
+                  {legRisk.level === 'Moderate' && <AlertTriangle size={11} />}
+                  {legRisk.level === 'High' && <ShieldAlert size={11} />}
+                  <span>{legRisk.level.toUpperCase()} DELAY RISK ({legRisk.score}%)</span>
+                </span>
+              </div>
+              <div className="pass-weather-content">
+                <div className="pass-weather-col origin">
+                  <span className="pwc-label">DEPARTURE ({legOriginIata})</span>
+                  <div className="pwc-main">
+                    <strong>{routeWeather?.originWeather?.temperature ?? 26}°C</strong>
+                    <span className="pwc-cond">{routeWeather?.originWeather?.condition || 'Fair Skies'}</span>
+                  </div>
+                  <div className="pwc-sub">
+                    <span><Wind size={10} /> {routeWeather?.originWeather?.windSpeed ?? 10} km/h</span>
+                    <span><Eye size={10} /> {routeWeather?.originWeather?.visibilityKm ?? 10} km vis</span>
+                  </div>
+                </div>
+
+                <div className="pass-weather-col reason">
+                  <span className="pwc-label">CORRIDOR OUTLOOK</span>
+                  <p className="pwc-reason-text">{legRisk.reason}</p>
+                </div>
+
+                <div className="pass-weather-col destination">
+                  <span className="pwc-label">ARRIVAL ({legDestIata})</span>
+                  <div className="pwc-main">
+                    <strong>{routeWeather?.destWeather?.temperature ?? 25}°C</strong>
+                    <span className="pwc-cond">{routeWeather?.destWeather?.condition || 'Fair Skies'}</span>
+                  </div>
+                  <div className="pwc-sub">
+                    <span><Wind size={10} /> {routeWeather?.destWeather?.windSpeed ?? 12} km/h</span>
+                    <span><Eye size={10} /> {routeWeather?.destWeather?.visibilityKm ?? 10} km vis</span>
+                  </div>
+                </div>
               </div>
             </div>
 

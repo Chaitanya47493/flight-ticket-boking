@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plane, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { Plane, Mail, Lock, Eye, EyeOff, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { auth } from '../firebase';
 import {
   signInWithEmailAndPassword,
@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 
-const LoginPage = () => {
+const LoginPage = ({ onCancel, pendingMessage }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -93,52 +93,195 @@ const LoginPage = () => {
   };
 
   return (
-    <div style={styles.page}>
-      {/* Animated background orbs */}
-      <div style={styles.orb1} />
-      <div style={styles.orb2} />
-      <div style={styles.orb3} />
-
-      <div style={styles.wrapper}>
-        {/* Left branding panel */}
-        <div style={styles.brand}>
-          <div style={styles.brandInner}>
-            <div style={styles.logoRow}>
-              <div style={styles.logoIcon}><Plane size={28} color="#fff" /></div>
-              <span style={styles.logoText}>Aero Space</span>
+    <div className="login-page-container" style={{
+      minHeight: '100vh',
+      backgroundColor: 'var(--bg-color)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1.5rem',
+      position: 'relative'
+    }}>
+      <div style={{
+        display: 'flex',
+        width: '100%',
+        maxWidth: '900px',
+        minHeight: '560px',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow-lg)',
+        border: '1px solid var(--surface-border)',
+        backgroundColor: 'var(--surface-color)',
+        flexDirection: 'row'
+      }}>
+        {/* Left Branding Panel */}
+        <div style={{
+          flex: 1,
+          backgroundColor: 'var(--surface-subtle)',
+          borderRight: '1px solid var(--surface-border)',
+          padding: '2.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '2.5rem' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                backgroundColor: 'var(--accent-subtle)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Plane size={22} style={{ color: 'var(--accent-color)' }} />
+              </div>
+              <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                Aero Space
+              </span>
             </div>
-            <h1 style={styles.brandTitle}>Your Journey<br />Starts Here</h1>
-            <p style={styles.brandSub}>
-              Search, compare and book flights across 500+ destinations.
-              Fast, easy and secure.
+
+            <h1 style={{
+              fontSize: '1.875rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              lineHeight: 1.25,
+              marginBottom: '0.75rem',
+              letterSpacing: '-0.02em'
+            }}>
+              Your journey starts here.
+            </h1>
+
+            <p style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.9375rem',
+              lineHeight: 1.5,
+              marginBottom: '2rem'
+            }}>
+              Search, compare, and reserve domestic flights with real-time seat inventory and transparent pricing.
             </p>
-            <div style={styles.featureList}>
-              {['Best price guarantee', 'Instant booking confirmation', 'Secure payments', '24/7 customer support'].map(f => (
-                <div key={f} style={styles.feature}>
-                  <span style={styles.featureDot} />
-                  {f}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {[
+                'Real-time seat selection & radar tracking',
+                'Transparent pricing with zero hidden fees',
+                'Instant e-ticket & digital boarding pass',
+                '24/7 dedicated customer service'
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+                  <span>{f}</span>
                 </div>
               ))}
             </div>
           </div>
+
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            &copy; {new Date().getFullYear()} Aero Space Technologies. All rights reserved.
+          </div>
         </div>
 
-        {/* Right form panel */}
-        <div style={styles.formPanel}>
-          <div style={styles.formCard}>
-            <h2 style={styles.formTitle}>
-              {isLogin ? 'Welcome back 👋' : 'Create account ✈️'}
+        {/* Right Form Panel */}
+        <div style={{
+          flex: 1.15,
+          padding: '2.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          backgroundColor: 'var(--surface-color)'
+        }}>
+          <div style={{ width: '100%', maxWidth: '380px', margin: '0 auto' }}>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '0.8125rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  marginBottom: '1.25rem',
+                  padding: 0,
+                  fontWeight: 600
+                }}
+              >
+                <ArrowLeft size={15} />
+                <span>Back to Search Flights</span>
+              </button>
+            )}
+
+            {pendingMessage && (
+              <div style={{
+                background: 'var(--accent-subtle)',
+                border: '1px solid var(--accent-color)',
+                color: 'var(--text-primary)',
+                padding: '0.625rem 0.875rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                lineHeight: 1.4
+              }}>
+                <Plane size={15} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+                <span>{pendingMessage}</span>
+              </div>
+            )}
+
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              marginBottom: '0.35rem',
+              letterSpacing: '-0.015em'
+            }}>
+              {isLogin ? 'Sign in to Aero Space' : 'Create an account'}
             </h2>
-            <p style={styles.formSub}>
+            <p style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.875rem',
+              marginBottom: '1.5rem'
+            }}>
               {isLogin
-                ? 'Sign in to access your flight bookings'
-                : 'Join us and start booking flights today'}
+                ? 'Access your saved trips and current flight bookings'
+                : 'Enter your credentials below to begin booking'}
             </p>
 
-            {error && <div style={styles.errorBox}>{error}</div>}
+            {error && (
+              <div style={{
+                background: 'var(--danger-bg)',
+                border: '1px solid var(--danger-color)',
+                color: 'var(--danger-color)',
+                padding: '0.625rem 0.875rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                marginBottom: '1rem'
+              }}>
+                {error}
+              </div>
+            )}
+
             {resetSent && (
-              <div style={styles.successBox}>
-                ✅ Password reset email sent! Check your inbox.
+              <div style={{
+                background: 'var(--success-bg)',
+                border: '1px solid var(--success-color)',
+                color: 'var(--success-color)',
+                padding: '0.625rem 0.875rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}>
+                <CheckCircle2 size={16} />
+                <span>Password reset link sent! Check your inbox.</span>
               </div>
             )}
 
@@ -146,73 +289,101 @@ const LoginPage = () => {
             <button
               onClick={handleGoogle}
               disabled={loading}
-              style={styles.googleBtn}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              className="btn-secondary"
+              style={{
+                width: '100%',
+                padding: '0.625rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                marginBottom: '1rem'
+              }}
             >
-              <svg width="20" height="20" viewBox="0 0 48 48">
+              <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
                 <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
                 <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
                 <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.3C9.7 35.7 16.3 44 24 44z"/>
                 <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C37.1 38.9 44 33 44 24c0-1.3-.1-2.7-.4-3.9z"/>
               </svg>
-              Continue with Google
+              <span>Continue with Google</span>
             </button>
 
-            <div style={styles.divider}>
-              <div style={styles.dividerLine} />
-              <span style={styles.dividerText}>or</span>
-              <div style={styles.dividerLine} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1rem 0' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>or with email</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
             </div>
 
-            <form onSubmit={handleSubmit} style={styles.form}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               {/* Email */}
-              <div style={styles.field}>
-                <label style={styles.label}>Email address</label>
-                <div style={styles.inputWrap}>
-                  <Mail size={16} style={styles.inputIcon} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <label style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  Email address
+                </label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Mail size={15} style={{ position: 'absolute', left: '0.875rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
                     placeholder="you@example.com"
-                    style={styles.input}
-                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    className="input-field"
+                    style={{ padding: '0.625rem 0.875rem 0.625rem 2.5rem', fontSize: '0.875rem' }}
                   />
                 </div>
               </div>
 
               {/* Password */}
-              <div style={styles.field}>
-                <label style={styles.label}>Password</label>
-                <div style={styles.inputWrap}>
-                  <Lock size={16} style={styles.inputIcon} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <label style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  Password
+                </label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={15} style={{ position: 'absolute', left: '0.875rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
                     placeholder="••••••••"
-                    style={{ ...styles.input, paddingRight: '3rem' }}
-                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    className="input-field"
+                    style={{ padding: '0.625rem 2.5rem 0.625rem 2.5rem', fontSize: '0.875rem' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={styles.eyeBtn}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      padding: '2px'
+                    }}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
                 {isLogin && (
                   <button
                     type="button"
                     onClick={handleForgotPassword}
                     disabled={loading}
-                    style={styles.forgotBtn}
+                    style={{
+                      alignSelf: 'flex-end',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-color)',
+                      fontSize: '0.8125rem',
+                      cursor: 'pointer',
+                      padding: '2px 0',
+                      marginTop: '0.15rem',
+                      fontWeight: 500
+                    }}
                   >
                     Forgot password?
                   </button>
@@ -222,20 +393,32 @@ const LoginPage = () => {
               <button
                 type="submit"
                 disabled={loading}
-                style={styles.submitBtn}
-                onMouseEnter={e => !loading && (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                className="btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '0.6875rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  marginTop: '0.5rem'
+                }}
               >
-                {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+                {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
               </button>
             </form>
 
-            <p style={styles.switchText}>
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8125rem', marginTop: '1.25rem' }}>
+              {isLogin ? "Don't have an account? " : 'Already registered? '}
               <button
                 type="button"
                 onClick={() => { setIsLogin(!isLogin); setError(''); setResetSent(false); }}
-                style={styles.switchBtn}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-color)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem'
+                }}
               >
                 {isLogin ? 'Sign up free' : 'Sign in'}
               </button>
@@ -245,140 +428,6 @@ const LoginPage = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    padding: '1rem',
-  },
-  orb1: {
-    position: 'absolute', top: '-10%', left: '-5%',
-    width: '500px', height: '500px', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(99,102,241,0.3) 0%, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  orb2: {
-    position: 'absolute', bottom: '-15%', right: '-5%',
-    width: '600px', height: '600px', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(56,189,248,0.2) 0%, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  orb3: {
-    position: 'absolute', top: '40%', left: '40%',
-    width: '300px', height: '300px', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)',
-    pointerEvents: 'none',
-  },
-  wrapper: {
-    display: 'flex',
-    width: '100%',
-    maxWidth: '960px',
-    minHeight: '600px',
-    borderRadius: '24px',
-    overflow: 'hidden',
-    boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-    position: 'relative',
-    zIndex: 1,
-  },
-  brand: {
-    flex: 1,
-    background: 'linear-gradient(160deg, rgba(99,102,241,0.9) 0%, rgba(56,189,248,0.8) 100%)',
-    padding: '3rem',
-    display: 'flex',
-    alignItems: 'center',
-    backdropFilter: 'blur(10px)',
-  },
-  brandInner: { width: '100%' },
-  logoRow: {
-    display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem',
-  },
-  logoIcon: {
-    width: '48px', height: '48px', background: 'rgba(255,255,255,0.2)',
-    borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  logoText: { fontSize: '1.75rem', fontWeight: '800', color: '#fff', letterSpacing: '-0.5px' },
-  brandTitle: {
-    fontSize: '2.5rem', fontWeight: '800', color: '#fff',
-    lineHeight: 1.2, marginBottom: '1rem',
-  },
-  brandSub: { color: 'rgba(255,255,255,0.8)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' },
-  featureList: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
-  feature: { display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#fff', fontSize: '0.95rem' },
-  featureDot: {
-    width: '8px', height: '8px', borderRadius: '50%',
-    background: 'rgba(255,255,255,0.9)', flexShrink: 0,
-  },
-  formPanel: {
-    flex: 1,
-    background: 'rgba(15, 23, 42, 0.97)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '2.5rem',
-  },
-  formCard: { width: '100%', maxWidth: '380px' },
-  formTitle: { fontSize: '1.75rem', fontWeight: '800', color: '#f1f5f9', marginBottom: '0.5rem' },
-  formSub: { color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.75rem' },
-  errorBox: {
-    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-    color: '#f87171', padding: '0.75rem 1rem', borderRadius: '10px',
-    fontSize: '0.85rem', marginBottom: '1rem',
-  },
-  successBox: {
-    background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
-    color: '#4ade80', padding: '0.75rem 1rem', borderRadius: '10px',
-    fontSize: '0.85rem', marginBottom: '1rem',
-  },
-  googleBtn: {
-    width: '100%', padding: '0.85rem', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', gap: '0.75rem',
-    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '12px', color: '#f1f5f9', fontSize: '0.95rem', fontWeight: '600',
-    cursor: 'pointer', transition: 'background 0.2s',
-  },
-  divider: {
-    display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.25rem 0',
-  },
-  dividerLine: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' },
-  dividerText: { color: '#64748b', fontSize: '0.8rem' },
-  form: { display: 'flex', flexDirection: 'column', gap: '1.1rem' },
-  field: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
-  label: { fontSize: '0.85rem', color: '#94a3b8', fontWeight: '500' },
-  inputWrap: { position: 'relative', display: 'flex', alignItems: 'center' },
-  inputIcon: { position: 'absolute', left: '1rem', color: '#64748b', pointerEvents: 'none' },
-  input: {
-    width: '100%', padding: '0.85rem 1rem 0.85rem 2.75rem',
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '12px', color: '#f1f5f9', fontSize: '0.95rem',
-    outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box',
-  },
-  eyeBtn: {
-    position: 'absolute', right: '1rem', background: 'none', border: 'none',
-    color: '#64748b', cursor: 'pointer', display: 'flex', padding: 0,
-  },
-  forgotBtn: {
-    alignSelf: 'flex-end', background: 'none', border: 'none',
-    color: '#6366f1', fontSize: '0.8rem', cursor: 'pointer', padding: 0, marginTop: '0.25rem',
-  },
-  submitBtn: {
-    width: '100%', padding: '0.9rem',
-    background: 'linear-gradient(135deg, #6366f1 0%, #38bdf8 100%)',
-    border: 'none', borderRadius: '12px', color: '#fff',
-    fontSize: '1rem', fontWeight: '700', cursor: 'pointer',
-    transition: 'opacity 0.2s', marginTop: '0.5rem',
-  },
-  switchText: { textAlign: 'center', color: '#64748b', fontSize: '0.875rem', marginTop: '1.25rem' },
-  switchBtn: {
-    background: 'none', border: 'none', color: '#6366f1',
-    cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem',
-  },
 };
 
 export default LoginPage;

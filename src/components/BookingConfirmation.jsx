@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Check, Home, Ticket } from 'lucide-react';
+import { Check, Home, Ticket, Radar } from 'lucide-react';
 import BoardingPassModal from './BoardingPassModal';
 
 // bookingId is the real Firestore document ID passed from App.jsx
-const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
+const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight }) => {
   const [showBoardingPass, setShowBoardingPass] = useState(false);
   const { flight, selectedClass, passengers, payment, searchData, selectedSeats, seatFee } = bookingData;
 
@@ -41,8 +41,8 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
           <Check size={48} />
         </div>
         
-        <h2 className="gradient-text" style={{ textAlign: 'center', marginTop: '1rem', fontSize: '2rem' }}>Booking Confirmed!</h2>
-        <p style={{ textAlign: 'center', color: '#94a3b8' }}>
+        <h2 style={{ textAlign: 'center', marginTop: '1rem', fontSize: '1.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>Booking Confirmed!</h2>
+        <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
           Your flight ticket has been issued and confirmed. Have a safe journey!
         </p>
         
@@ -52,16 +52,38 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
         </div>
 
         {/* View Boarding Pass Banner Button */}
-        <div style={{ textAlign: 'center', margin: '1.5rem 0' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', margin: '1.5rem 0' }}>
           <button
             type="button"
             className="btn-primary"
             onClick={() => setShowBoardingPass(true)}
-            style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', boxShadow: '0 0 25px rgba(99,102,241,0.4)' }}
+            style={{ padding: '0.75rem 1.5rem', fontSize: '0.9375rem' }}
           >
-            <Ticket size={20} />
+            <Ticket size={18} />
             View & Print Boarding Pass
           </button>
+
+          {onTrackFlight && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => onTrackFlight({ ...bookingData, id: bookingId })}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.9375rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                borderColor: 'var(--accent-color)',
+                background: 'var(--accent-subtle)',
+                color: 'var(--accent-color)',
+                fontWeight: 600
+              }}
+            >
+              <Radar size={18} style={{ color: 'var(--accent-color)' }} />
+              Track in AeroRadar
+            </button>
+          )}
         </div>
         
         <div className="glass-panel summary-card" style={{ marginTop: '1.5rem', padding: '1.5rem' }}>
@@ -145,7 +167,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId }) => {
 
           <div className="summary-row" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
             <span className="summary-label" style={{ fontWeight: 600 }}>Total Amount Paid</span>
-            <span className="summary-value" style={{ color: '#818cf8', fontSize: '1.25rem', fontWeight: 700 }}>
+            <span className="summary-value" style={{ color: 'var(--accent-color)', fontSize: '1.25rem', fontWeight: 700 }}>
               ₹{totalAmount.toLocaleString()}
             </span>
           </div>

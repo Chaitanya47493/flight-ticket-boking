@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from './components/Header';
-import SearchForm from './components/SearchForm';
+import WelcomePage from './components/WelcomePage';
+import HomePage from './components/HomePage';
 import FlightResults from './components/FlightResults';
 import PassengerForm from './components/PassengerForm';
 import SeatSelection from './components/SeatSelection';
@@ -8,6 +9,8 @@ import PaymentForm from './components/PaymentForm';
 import BookingConfirmation from './components/BookingConfirmation';
 import MyBookings from './components/MyBookings';
 import LoginPage from './components/LoginPage';
+import GodsEyeRadar from './components/GodsEyeRadar';
+import AdminDashboard from './components/AdminDashboard';
 import { Search, Plane, User, Armchair, CreditCard, CheckCircle } from 'lucide-react';
 import { db, auth } from './firebase';
 import { collection, addDoc, doc, setDoc, arrayUnion } from 'firebase/firestore';
@@ -29,17 +32,25 @@ const escapeHtml = (str) => {
 // Initialize EmailJS with public key
 emailjs.init("twDo3sgI5ca605MeZ");
 
+const getInitialGuestSession = () => {
+  try {
+    return sessionStorage.getItem('aero_guest_entered') === 'true';
+  } catch {
+    return false;
+  }
+};
+
 function App() {
   const [user, setUser] = useState(undefined); // undefined = still loading
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
+  const [hasEntered, setHasEntered] = useState(getInitialGuestSession);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingFlightSelection, setPendingFlightSelection] = useState(null);
+  const [postLoginTarget, setPostLoginTarget] = useState(null);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
+  const [trackedBooking, setTrackedBooking] = useState(null);
+  const [initialPnr, setInitialPnr] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [searchData, setSearchData] = useState(null);
   const [bookingData, setBookingData] = useState({
@@ -51,12 +62,48 @@ function App() {
     payment: null,
   });
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setShowLoginModal(false);
+        setHasEntered(true);
+        try {
+          sessionStorage.setItem('aero_guest_entered', 'true');
+        } catch {
+          // Ignore storage errors in restricted iframe/private mode
+        }
+        if (pendingFlightSelection) {
+          setBookingData(prev => ({
+            ...prev,
+            flight: pendingFlightSelection.flight,
+            selectedClass: pendingFlightSelection.selectedClass
+          }));
+          setCurrentStep(3);
+          setPendingFlightSelection(null);
+        } else if (postLoginTarget === 'my_bookings') {
+          setShowMyBookings(true);
+          setShowRadar(false);
+          setShowAdmin(false);
+          setPostLoginTarget(null);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [pendingFlightSelection, postLoginTarget]);
+
   const handleSearch = (data) => {
     setSearchData(data);
     setCurrentStep(2);
   };
 
   const handleSelectFlight = (flight, selectedClass) => {
+    if (!user) {
+      // Allow guests to browse, but prompt login before Step 3 Passenger Details
+      setPendingFlightSelection({ flight, selectedClass });
+      setShowLoginModal(true);
+      return;
+    }
     setBookingData(prev => ({ ...prev, flight, selectedClass }));
     setCurrentStep(3);
   };
@@ -304,7 +351,40 @@ function App() {
       payment: null
     });
     setBookingId('');
+    setInitialPnr('');
     setCurrentStep(1);
+  };
+
+  const handleNavigateHome = () => {
+    setShowMyBookings(false);
+    setShowRadar(false);
+    setShowAdmin(false);
+    setTrackedBooking(null);
+    setCurrentStep(1);
+  };
+
+  const handleContinueGuest = () => {
+    try {
+      sessionStorage.setItem('aero_guest_entered', 'true');
+    } catch {
+      // Ignore storage errors in restricted private mode
+    }
+    setHasEntered(true);
+  };
+
+  const handleLogout = () => {
+    signOut(auth);
+    try {
+      sessionStorage.removeItem('aero_guest_entered');
+    } catch {
+      // Ignore storage errors
+    }
+    setHasEntered(false);
+    setShowMyBookings(false);
+    setShowRadar(false);
+    setShowAdmin(false);
+    setTrackedBooking(null);
+    handleReset();
   };
 
   // ── Loading splash ──────────────────────────────────────────────
@@ -315,8 +395,8 @@ function App() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-        color: '#6366f1',
+        background: 'var(--bg-color)',
+        color: 'var(--accent-color)',
         fontSize: '1.5rem',
         gap: '1rem',
         flexDirection: 'column',
@@ -327,28 +407,95 @@ function App() {
     );
   }
 
-  // ── Not logged in → show Login Page ────────────────────────────
-  if (!user) {
-    return <LoginPage />;
+  // ── Guest Login Prompt Modal (if user clicked "Book", "My Bookings", or "Sign In") ──
+  if (showLoginModal) {
+    return (
+      <LoginPage
+        onCancel={() => {
+          setShowLoginModal(false);
+          setPendingFlightSelection(null);
+          setPostLoginTarget(null);
+        }}
+        pendingMessage={
+          pendingFlightSelection
+            ? `Please sign in to proceed with booking your ${pendingFlightSelection.flight?.airline || ''} flight (${pendingFlightSelection.flight?.flightNumber || ''})`
+            : (postLoginTarget === 'my_bookings' ? 'Please sign in to view and manage your flight bookings' : null)
+        }
+      />
+    );
   }
 
-  // ── Logged in → show booking app ───────────────────────────────
+  // ── Main App Container (accessible to guests for search/results, and authenticated users for booking) ──
+  const isWelcomeView = !user && !hasEntered;
+
   return (
     <div className="app-container">
       <Header
-        onMyBookingsClick={() => setShowMyBookings(true)}
-        onLogoClick={() => setShowMyBookings(false)}
-        user={user}
-        onLogout={() => {
-          signOut(auth);
-          setShowMyBookings(false);
-          handleReset();
+        onHomeClick={handleNavigateHome}
+        isHomeActive={!isWelcomeView && !showRadar && !showAdmin && !showMyBookings && currentStep === 1}
+        isWelcome={isWelcomeView}
+        onMyBookingsClick={(pnr = '') => {
+          setInitialPnr(typeof pnr === 'string' ? pnr : '');
+          if (!user) {
+            setPostLoginTarget('my_bookings');
+            setShowLoginModal(true);
+          } else {
+            setShowMyBookings(true);
+            setShowRadar(false);
+            setShowAdmin(false);
+            setTrackedBooking(null);
+          }
         }}
+        onRadarClick={() => {
+          setShowRadar(true);
+          setShowMyBookings(false);
+          setShowAdmin(false);
+          setTrackedBooking(null);
+        }}
+        showRadar={showRadar}
+        onAdminClick={() => {
+          setShowAdmin(true);
+          setShowRadar(false);
+          setShowMyBookings(false);
+          setTrackedBooking(null);
+        }}
+        showAdmin={showAdmin}
+        onLoginClick={() => {
+          setShowLoginModal(true);
+        }}
+        onLogoClick={isWelcomeView ? () => window.scrollTo({ top: 0, behavior: 'smooth' }) : handleNavigateHome}
+        user={user}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
-        {showMyBookings ? (
-          <MyBookings user={user} />
+        {showRadar ? (
+          <GodsEyeRadar
+            trackedBooking={trackedBooking}
+            onClose={() => {
+              setShowRadar(false);
+              setTrackedBooking(null);
+            }}
+          />
+        ) : showAdmin ? (
+          <AdminDashboard
+            onClose={() => setShowAdmin(false)}
+          />
+        ) : showMyBookings ? (
+          <MyBookings
+            user={user}
+            onTrackFlight={(booking) => {
+              setTrackedBooking(booking);
+              setShowRadar(true);
+              setShowMyBookings(false);
+            }}
+            initialPnr={initialPnr}
+          />
+        ) : isWelcomeView ? (
+          <WelcomePage
+            onSignIn={() => setShowLoginModal(true)}
+            onContinueGuest={handleContinueGuest}
+          />
         ) : (
           <>
             {/* 6-Step Stepper */}
@@ -392,7 +539,31 @@ function App() {
             )}
 
             {/* Step Content */}
-            {currentStep === 1 && <SearchForm onSearch={handleSearch} />}
+            {currentStep === 1 && (
+              <HomePage
+                onSearch={handleSearch}
+                initialSearchData={searchData}
+                onRadarClick={() => {
+                  setShowRadar(true);
+                  setShowMyBookings(false);
+                  setShowAdmin(false);
+                  setTrackedBooking(null);
+                }}
+                onMyBookingsClick={(pnr = '') => {
+                  setInitialPnr(typeof pnr === 'string' ? pnr : '');
+                  if (!user) {
+                    setPostLoginTarget('my_bookings');
+                    setShowLoginModal(true);
+                  } else {
+                    setShowMyBookings(true);
+                    setShowRadar(false);
+                    setShowAdmin(false);
+                    setTrackedBooking(null);
+                  }
+                }}
+                user={user}
+              />
+            )}
 
             {currentStep === 2 && (
               <FlightResults
@@ -426,7 +597,7 @@ function App() {
             {currentStep === 5 && (
               <PaymentForm
                 bookingData={bookingData}
-                userEmail={user.email}
+                userEmail={user?.email || ''}
                 onBack={() => setCurrentStep(4)}
                 onSubmit={handlePaymentSubmit}
                 isSubmitting={isSubmitting}
@@ -438,6 +609,11 @@ function App() {
                 bookingData={bookingData}
                 bookingId={bookingId}
                 onReset={handleReset}
+                onTrackFlight={(booking) => {
+                  setTrackedBooking(booking);
+                  setShowRadar(true);
+                  setShowMyBookings(false);
+                }}
               />
             )}
           </>

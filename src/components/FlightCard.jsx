@@ -1,8 +1,25 @@
-import React, { useState } from 'react';
-import { Plane, Clock, Check } from 'lucide-react';
+import { useState } from 'react';
+import { 
+  Plane, Clock, Check, X, Wind, Eye, AlertTriangle, ShieldAlert, CheckCircle2, 
+  Activity, Sun, CloudSun, CloudRain, CloudLightning, CloudFog, CloudDrizzle, CloudSnow 
+} from 'lucide-react';
 
-const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass }) => {
+const WeatherGlyph = ({ iconName, size = 14, className = '', style = {} }) => {
+  switch (iconName) {
+    case 'Sun': return <Sun size={size} className={className} style={style} />;
+    case 'CloudSun': return <CloudSun size={size} className={className} style={style} />;
+    case 'CloudRain': return <CloudRain size={size} className={className} style={style} />;
+    case 'CloudLightning': return <CloudLightning size={size} className={className} style={style} />;
+    case 'CloudFog': return <CloudFog size={size} className={className} style={style} />;
+    case 'CloudDrizzle': return <CloudDrizzle size={size} className={className} style={style} />;
+    case 'CloudSnow': return <CloudSnow size={size} className={className} style={style} />;
+    default: return <Sun size={size} className={className} style={style} />;
+  }
+};
+
+const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass, weatherData = null }) => {
   const [selectedClass, setSelectedClass] = useState(null);
+  const [showWeatherPopover, setShowWeatherPopover] = useState(false);
 
   const handleClassSelect = (cls) => {
     setSelectedClass(cls);
@@ -20,75 +37,140 @@ const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass }) => {
     <div className="flight-card glass-panel animate-slide-up">
       <div className="flight-main-info">
         <div className="airline-info">
-          <div className="airline-logo" style={{ overflow: 'hidden', background: 'white' }}>
+          <div className="airline-logo" style={{ overflow: 'hidden' }}>
             {flight.airlineLogo ? (
               <img src={flight.airlineLogo} alt={flight.airline} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
-              <Plane size={24} className="logo-icon" />
+              <Plane size={22} className="logo-icon" />
             )}
           </div>
           <div>
             <div className="airline-name">{flight.airline}</div>
-            <div className="flight-number">
-              {flight.flightNumber}
+            <div className="flight-number" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '3px' }}>
+              <span>{flight.flightNumber}</span>
               {flight.airplane && (
-                <span style={{
-                  marginLeft: '0.5rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  color: '#94a3b8',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
+                <span className="badge" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--surface-border)', color: 'var(--text-secondary)' }}>
                   {flight.airplane}
                 </span>
               )}
               {flight.terminal && (
-                <span style={{
-                  marginLeft: '0.5rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  color: '#94a3b8',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
+                <span className="badge" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--surface-border)', color: 'var(--text-secondary)' }}>
                   TERMINAL {flight.terminal}
                 </span>
               )}
               {flight.source && (
-                <span style={{
-                  marginLeft: '0.5rem',
-                  background: flight.source.toLowerCase() === 'live' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.1)',
-                  color: flight.source.toLowerCase() === 'live' ? '#4ade80' : '#818cf8',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  border: flight.source.toLowerCase() === 'live' ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(99, 102, 241, 0.2)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  {flight.source.toLowerCase() === 'live' ? '🟢 LIVE FLIGHT' : flight.source.toUpperCase()}
+                <span className={`badge ${flight.source.toLowerCase() === 'live' ? 'badge-success' : 'badge-info'}`}>
+                  {flight.source.toLowerCase() === 'live' ? (
+                    <>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                      <span>LIVE FLIGHT</span>
+                    </>
+                  ) : (
+                    <span>{flight.source.toUpperCase()}</span>
+                  )}
                 </span>
               )}
               {tripType === 'roundtrip' && (
-                <span style={{
-                  marginLeft: '0.5rem',
-                  background: 'rgba(56, 189, 248, 0.1)',
-                  color: '#38bdf8',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  border: '1px solid rgba(56, 189, 248, 0.3)'
-                }}>
+                <span className="badge badge-info">
                   Round Trip Included
                 </span>
+              )}
+              {/* Delay Risk Badge & Expandable Popover */}
+              {weatherData?.risk && (
+                <div className="weather-risk-badge-wrapper">
+                  <button
+                    type="button"
+                    className={`badge weather-risk-pill badge-risk-${weatherData.risk.level.toLowerCase()}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowWeatherPopover(prev => !prev);
+                    }}
+                    title="Click to view live weather telemetry & delay risk factors"
+                    aria-label={`Delay risk level: ${weatherData.risk.level}, score: ${weatherData.risk.score}%`}
+                  >
+                    <span className="risk-pulse-dot" />
+                    <span>{weatherData.risk.level} Delay Risk ({weatherData.risk.score}%)</span>
+                  </button>
+
+                  {showWeatherPopover && (
+                    <div 
+                      className="weather-risk-popover animate-scale-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="popover-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Activity size={14} style={{ color: 'var(--accent-color)' }} />
+                          <span style={{ fontWeight: 700, fontSize: '0.8125rem' }}>Flight Delay Risk Analysis</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          className="popover-close-btn"
+                          onClick={() => setShowWeatherPopover(false)}
+                          aria-label="Close weather analysis"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+
+                      <div className="popover-score-row">
+                        <div className="popover-score-head">
+                          <span className={`risk-grade-badge grade-${weatherData.risk.level.toLowerCase()}`}>
+                            {weatherData.risk.level === 'Low' && <CheckCircle2 size={12} />}
+                            {weatherData.risk.level === 'Moderate' && <AlertTriangle size={12} />}
+                            {weatherData.risk.level === 'High' && <ShieldAlert size={12} />}
+                            <span>{weatherData.risk.level} Risk</span>
+                          </span>
+                          <span className="popover-score-num">{weatherData.risk.score}% Risk Factor</span>
+                        </div>
+                        <div className="popover-progress-track">
+                          <div 
+                            className={`popover-progress-fill fill-${weatherData.risk.level.toLowerCase()}`} 
+                            style={{ width: `${weatherData.risk.score}%` }} 
+                          />
+                        </div>
+                        <p className="popover-reason-text">{weatherData.risk.reason}</p>
+                        {flight.stops > 0 && (
+                          <div className="layover-risk-alert">
+                            <AlertTriangle size={12} />
+                            <span>{flight.stops} intermediate connection{flight.stops > 1 ? 's' : ''} (+{flight.stops * 6}% layover risk)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="popover-weather-grid">
+                        <div className="popover-weather-box origin">
+                          <div className="pwb-title">TAKEOFF &bull; {flight.origin}</div>
+                          <div className="pwb-row">
+                            <WeatherGlyph iconName={weatherData.originWeather?.iconName} size={15} style={{ color: 'var(--accent-color)' }} />
+                            <strong className="pwb-temp">{weatherData.originWeather?.temperature ?? '--'}°C</strong>
+                            <span className="pwb-cond">{weatherData.originWeather?.condition}</span>
+                          </div>
+                          <div className="pwb-stats">
+                            <span><Wind size={10} /> {weatherData.originWeather?.windSpeed ?? '--'} km/h</span>
+                            <span><Eye size={10} /> {weatherData.originWeather?.visibilityKm ?? '--'} km vis</span>
+                          </div>
+                        </div>
+
+                        <div className="popover-weather-box destination">
+                          <div className="pwb-title">LANDING &bull; {flight.destination}</div>
+                          <div className="pwb-row">
+                            <WeatherGlyph iconName={weatherData.destWeather?.iconName} size={15} style={{ color: 'var(--accent-color)' }} />
+                            <strong className="pwb-temp">{weatherData.destWeather?.temperature ?? '--'}°C</strong>
+                            <span className="pwb-cond">{weatherData.destWeather?.condition}</span>
+                          </div>
+                          <div className="pwb-stats">
+                            <span><Wind size={10} /> {weatherData.destWeather?.windSpeed ?? '--'} km/h</span>
+                            <span><Eye size={10} /> {weatherData.destWeather?.visibilityKm ?? '--'} km vis</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="popover-footer-note">
+                        <span>Live telemetry via Open-Meteo &bull; 15-min cache</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -101,13 +183,19 @@ const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass }) => {
           </div>
           
           <div className="flight-duration">
-            <Clock size={14} />
-            <span>{flight.duration}</span>
-            <div className="duration-line">
-              <Plane size={14} className="duration-plane" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Clock size={12} />
+              <span>{flight.duration}</span>
             </div>
-            <span style={{ fontSize: flight.routePath && flight.routePath !== 'Direct' ? '0.75rem' : 'inherit', fontWeight: flight.routePath && flight.routePath !== 'Direct' ? '600' : 'normal', color: flight.routePath && flight.routePath !== 'Direct' ? '#f59e0b' : 'inherit' }}>
-              {flight.stops === 0 ? 'Direct' : `${flight.stops} Stop(s)${flight.routePath ? ` • ${flight.routePath}` : ''}`}
+            <div className="duration-line">
+              <Plane size={13} className="duration-plane" />
+            </div>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: flight.stops === 0 ? 600 : 500,
+              color: flight.stops === 0 ? 'var(--success-color)' : 'var(--warning-color)'
+            }}>
+              {flight.stops === 0 ? 'Non-stop' : `${flight.stops} Stop(s)${flight.routePath ? ` • ${flight.routePath}` : ''}`}
             </span>
           </div>
           
@@ -124,28 +212,32 @@ const FlightCard = ({ flight, tripType, passengers = 1, onSelectClass }) => {
             key={cls.name}
             className={`class-card ${selectedClass?.name === cls.name ? 'selected' : ''}`}
             onClick={() => handleClassSelect(cls)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleClassSelect(cls); }}
           >
             <div className="class-name">{cls.name}</div>
             <div className="class-price">
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '1.35rem', fontWeight: 800 }}>₹{cls.price.toLocaleString()}</span>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>/ person</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '3px' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>₹{cls.price.toLocaleString()}</span>
+                <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', fontWeight: 500 }}>/ pax</span>
               </div>
               {numPassengers > 1 && (
-                <div style={{ fontSize: '0.75rem', color: '#a5b4fc', marginTop: '3px', fontWeight: 600 }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--accent-color)', marginTop: '2px', fontWeight: 600 }}>
                   ₹{(cls.price * numPassengers).toLocaleString()} total ({numPassengers} travelers)
                 </div>
               )}
               {tripType === 'roundtrip' && (
-                <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 500, marginTop: '2px' }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '2px' }}>
                   Round trip included
                 </div>
               )}
             </div>
             <div className="class-features">
               {cls.features.map(f => (
-                <div key={f} style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'4px'}}>
-                  <Check size={12} className="logo-icon"/> {f}
+                <div key={f} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                  <Check size={11} style={{ color: 'var(--accent-color)' }} />
+                  <span>{f}</span>
                 </div>
               ))}
             </div>

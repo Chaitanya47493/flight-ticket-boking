@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield, RefreshCw, Plane, RotateCcw } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
@@ -124,11 +124,11 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
   const handleSeatClick = (seatId, row, letter) => {
     if (flightHasBusinessClass) {
       if (isClassBusiness && row > 3) {
-        setCabinWarning(`🔒 Seat ${seatId} is Locked: You booked Business Class (${selectedClass?.name}). You can ONLY select seats from Rows 1–3.`);
+        setCabinWarning(`Seat ${seatId} is locked: You booked Business Class (${selectedClass?.name}). You can ONLY select seats from Rows 1–3.`);
         return;
       }
       if (!isClassBusiness && row <= 3) {
-        setCabinWarning(`🔒 Seat ${seatId} is Locked: Rows 1–3 are exclusively for Business Class passengers. Please select your seats from Rows 4–12.`);
+        setCabinWarning(`Seat ${seatId} is locked: Rows 1–3 are exclusively for Business Class passengers. Please select your seats from Rows 4–12.`);
         return;
       }
     }
@@ -264,14 +264,7 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
           <p>
             {selectedFlight?.airline} {selectedFlight?.flightNumber} &nbsp;•&nbsp;
             {selectedFlight?.origin} ⇄ {selectedFlight?.destination} &nbsp;•&nbsp;
-            <span style={{
-              background: isClassBusiness ? 'linear-gradient(135deg, rgba(234,179,8,0.2), rgba(245,158,11,0.2))' : 'rgba(99,102,241,0.2)',
-              color: isClassBusiness ? '#fbbf24' : '#a5b4fc',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontWeight: 700,
-              marginLeft: '4px'
-            }}>
+            <span className={isClassBusiness ? 'badge badge-warning' : 'badge badge-info'} style={{ marginLeft: '6px' }}>
               {selectedClass?.name} Cabin
             </span>
           </p>
@@ -297,11 +290,11 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
             className={`trip-leg-tab ${activeLeg === 'outbound' ? 'active' : ''}`}
             onClick={() => { setActiveLeg('outbound'); setCabinWarning(''); }}
             style={{
-              padding: '1rem',
-              borderRadius: '12px',
-              border: activeLeg === 'outbound' ? '2px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
-              background: activeLeg === 'outbound' ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)',
-              color: '#fff',
+              padding: '0.875rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              border: activeLeg === 'outbound' ? '2px solid var(--accent-color)' : '1px solid var(--surface-border)',
+              background: activeLeg === 'outbound' ? 'var(--accent-subtle)' : 'var(--surface-color)',
+              color: 'var(--text-primary)',
               textAlign: 'left',
               cursor: 'pointer',
               display: 'flex',
@@ -311,25 +304,19 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
             }}
           >
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                ✈️ Leg 1: Outbound
+              <div style={{ fontSize: '0.75rem', color: 'var(--accent-color)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Plane size={13} />
+                <span>Leg 1: Outbound</span>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '2px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginTop: '2px' }}>
                 {selectedFlight?.origin} → {selectedFlight?.destination}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {searchData?.date} • {selectedFlight?.flightNumber}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{
-                fontSize: '0.75rem',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                background: Object.keys(outboundSeats).length === passengerList.length ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.15)',
-                color: Object.keys(outboundSeats).length === passengerList.length ? '#4ade80' : '#fbbf24',
-                fontWeight: 600
-              }}>
+              <span className={`badge ${Object.keys(outboundSeats).length === passengerList.length ? 'badge-success' : 'badge-warning'}`}>
                 {Object.keys(outboundSeats).length}/{passengerList.length} Seats
               </span>
             </div>
@@ -340,11 +327,11 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
             className={`trip-leg-tab ${activeLeg === 'return' ? 'active' : ''}`}
             onClick={() => { setActiveLeg('return'); setCabinWarning(''); }}
             style={{
-              padding: '1rem',
-              borderRadius: '12px',
-              border: activeLeg === 'return' ? '2px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
-              background: activeLeg === 'return' ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)',
-              color: '#fff',
+              padding: '0.875rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              border: activeLeg === 'return' ? '2px solid var(--accent-color)' : '1px solid var(--surface-border)',
+              background: activeLeg === 'return' ? 'var(--accent-subtle)' : 'var(--surface-color)',
+              color: 'var(--text-primary)',
               textAlign: 'left',
               cursor: 'pointer',
               display: 'flex',
@@ -354,25 +341,19 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
             }}
           >
             <div>
-              <div style={{ fontSize: '0.75rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                🔄 Leg 2: Return
+              <div style={{ fontSize: '0.75rem', color: 'var(--accent-color)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <RotateCcw size={13} />
+                <span>Leg 2: Return</span>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '2px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginTop: '2px' }}>
                 {selectedFlight?.destination} → {selectedFlight?.origin}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {searchData?.returnDate} • {selectedFlight?.flightNumber}-RT
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{
-                fontSize: '0.75rem',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                background: Object.keys(returnSeats).length === passengerList.length ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.15)',
-                color: Object.keys(returnSeats).length === passengerList.length ? '#4ade80' : '#fbbf24',
-                fontWeight: 600
-              }}>
+              <span className={`badge ${Object.keys(returnSeats).length === passengerList.length ? 'badge-success' : 'badge-warning'}`}>
                 {Object.keys(returnSeats).length}/{passengerList.length} Seats
               </span>
             </div>
@@ -382,11 +363,11 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
 
       {/* Cabin Guidance Banner */}
       <div style={{
-        background: !flightHasBusinessClass ? 'rgba(56,189,248,0.08)' : isClassBusiness ? 'rgba(234,179,8,0.08)' : 'rgba(99,102,241,0.08)',
-        border: !flightHasBusinessClass ? '1px solid rgba(56,189,248,0.25)' : isClassBusiness ? '1px solid rgba(234,179,8,0.25)' : '1px solid rgba(99,102,241,0.25)',
-        borderRadius: '12px',
-        padding: '0.85rem 1.25rem',
-        marginBottom: '1.5rem',
+        background: 'var(--surface-subtle)',
+        border: '1px solid var(--surface-border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '0.75rem 1.25rem',
+        marginBottom: '1.25rem',
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
@@ -394,23 +375,23 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
       }}>
         {!flightHasBusinessClass ? (
           <>
-            <Sparkles size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
-            <span style={{ color: '#bae6fd' }}>
-              <strong>All-Economy Aircraft:</strong> All seats across Rows 1–12 are available.
+            <Sparkles size={18} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>All-Economy Aircraft:</strong> All seats across Rows 1–12 are available.
             </span>
           </>
         ) : isClassBusiness ? (
           <>
-            <Crown size={20} style={{ color: '#fbbf24', flexShrink: 0 }} />
-            <span style={{ color: '#fef08a' }}>
-              <strong>Business Class Privilege:</strong> You have exclusive access to Rows 1–3 with extra-wide seating.
+            <Crown size={18} style={{ color: 'var(--warning-color)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--warning-color)' }}>Business Class Privilege:</strong> You have exclusive access to Rows 1–3 with extra-wide seating.
             </span>
           </>
         ) : (
           <>
-            <Shield size={20} style={{ color: '#818cf8', flexShrink: 0 }} />
-            <span style={{ color: '#cbd5e1' }}>
-              <strong>Economy Booking:</strong> Please choose your seats from Main Cabin (Rows 4–12). Rows 1–3 are reserved for Business Class.
+            <Shield size={18} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Economy Booking:</strong> Please choose your seats from Main Cabin (Rows 4–12). Rows 1–3 are reserved for Business Class.
             </span>
           </>
         )}
@@ -419,18 +400,18 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, 
       {/* Inline Cabin Warning Alert */}
       {cabinWarning && (
         <div style={{
-          background: 'rgba(239,68,68,0.12)',
-          border: '1px solid rgba(239,68,68,0.3)',
-          color: '#fca5a5',
-          padding: '0.75rem 1rem',
-          borderRadius: '10px',
-          fontSize: '0.85rem',
-          marginBottom: '1.5rem',
+          background: 'var(--danger-bg)',
+          border: '1px solid var(--danger-color)',
+          color: 'var(--danger-color)',
+          padding: '0.625rem 0.875rem',
+          borderRadius: 'var(--radius-md)',
+          fontSize: '0.8125rem',
+          marginBottom: '1.25rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem'
+          gap: '0.4rem'
         }}>
-          <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <AlertCircle size={15} style={{ flexShrink: 0 }} />
           <span>{cabinWarning}</span>
         </div>
       )}
