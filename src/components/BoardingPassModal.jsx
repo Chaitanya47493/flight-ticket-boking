@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Printer, Plane, QrCode, ShieldCheck } from 'lucide-react';
 
 const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
+  const [activePassengerIndex, setActivePassengerIndex] = useState(0);
+  const [activeLeg, setActiveLeg] = useState('outbound');
+
   if (!isOpen || !bookingData) return null;
 
-  const { flight, selectedClass, passengers, selectedSeats, searchData } = bookingData;
+  const { flight, selectedClass, passengers, selectedSeats, searchData, status } = bookingData;
+  const isCancelled = status === 'CANCELLED';
+  const isRoundTrip = searchData?.tripType === 'roundtrip' && (!!searchData?.returnDate || !!selectedSeats?.return);
+
   const pList = passengers?.list || [
     {
       id: 1,
@@ -14,11 +20,22 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
     }
   ];
 
-  const [activePassengerIndex, setActivePassengerIndex] = useState(0);
   const activePassenger = pList[activePassengerIndex] || pList[0];
-
   const bookingRef = bookingId ? bookingId.substring(0, 6).toUpperCase() : 'AS9842';
-  const assignedSeat = selectedSeats?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}A`;
+
+  // Leg-specific details
+  const isReturnLeg = isRoundTrip && activeLeg === 'return';
+  const legFlightNumber = isReturnLeg ? `${flight?.flightNumber || 'FL100'}-RT` : (flight?.flightNumber || '6E 100');
+  const legOriginIata = isReturnLeg ? (flight?.destination || 'BOM') : (flight?.origin || 'DEL');
+  const legDestIata = isReturnLeg ? (flight?.origin || 'DEL') : (flight?.destination || 'BOM');
+  const legOriginCity = isReturnLeg ? (searchData?.to || flight?.destination) : (searchData?.from || flight?.origin);
+  const legDestCity = isReturnLeg ? (searchData?.from || flight?.origin) : (searchData?.to || flight?.destination);
+  const legDate = isReturnLeg ? (searchData?.returnDate || searchData?.date || 'Confirmed') : (searchData?.date || 'Confirmed');
+
+  // Seat for active leg and passenger
+  const assignedSeat = isReturnLeg
+    ? (selectedSeats?.return?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}C`)
+    : (selectedSeats?.outbound?.[activePassengerIndex]?.id || selectedSeats?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}A`);
 
   const handlePrint = () => {
     window.print();
@@ -45,25 +62,109 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
           </div>
         </div>
 
+        {/* Cancellation Notice Banner */}
+        {isCancelled && (
+          <div className="no-print" style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            color: '#f87171',
+            borderRadius: '8px',
+            padding: '0.65rem 1rem',
+            marginBottom: '1rem',
+            fontSize: '0.88rem',
+            textAlign: 'center',
+            fontWeight: 600
+          }}>
+            ⛔ THIS BOOKING HAS BEEN CANCELLED. Boarding pass is VOID and not valid for flight check-in or gate entry.
+          </div>
+        )}
+
+        {/* Round Trip Leg Switcher Tabs */}
+        {isRoundTrip && (
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem', justifyContent: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setActiveLeg('outbound')}
+              style={{
+                padding: '0.45rem 1.1rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: activeLeg === 'outbound' ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.12)',
+                background: activeLeg === 'outbound' ? 'rgba(99,102,241,0.25)' : 'rgba(30,41,59,0.5)',
+                color: activeLeg === 'outbound' ? '#818cf8' : '#94a3b8'
+              }}
+            >
+              🛫 Outbound: {flight?.origin} → {flight?.destination}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLeg('return')}
+              style={{
+                padding: '0.45rem 1.1rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: activeLeg === 'return' ? '1px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.12)',
+                background: activeLeg === 'return' ? 'rgba(99,102,241,0.25)' : 'rgba(30,41,59,0.5)',
+                color: activeLeg === 'return' ? '#818cf8' : '#94a3b8'
+              }}
+            >
+              🔄 Return: {flight?.destination} → {flight?.origin}
+            </button>
+          </div>
+        )}
+
         {/* Passenger Tabs if multi-passenger */}
         {pList.length > 1 && (
           <div className="passenger-tabs-bar no-print">
             <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Passenger:</span>
-            {pList.map((p, idx) => (
-              <button
-                type="button"
-                key={p.id || idx}
-                className={`passenger-tab-btn ${activePassengerIndex === idx ? 'active' : ''}`}
-                onClick={() => setActivePassengerIndex(idx)}
-              >
-                {p.firstName} {p.lastName} (Seat {selectedSeats?.[idx]?.id || `${idx + 4}A`})
-              </button>
-            ))}
+            {pList.map((p, idx) => {
+              const currentLegSeat = isReturnLeg
+                ? (selectedSeats?.return?.[idx]?.id || `${idx + 4}C`)
+                : (selectedSeats?.outbound?.[idx]?.id || selectedSeats?.[idx]?.id || `${idx + 4}A`);
+
+              return (
+                <button
+                  type="button"
+                  key={p.id || idx}
+                  className={`passenger-tab-btn ${activePassengerIndex === idx ? 'active' : ''}`}
+                  onClick={() => setActivePassengerIndex(idx)}
+                >
+                  {p.firstName} {p.lastName} (Seat {currentLegSeat})
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* Physical Boarding Pass Visual for Screen & Print */}
         <div className="boarding-pass-card printable-ticket">
+          {/* Cancelled Watermark */}
+          {isCancelled && (
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(-22deg)',
+              fontSize: '3.5rem',
+              fontWeight: 900,
+              color: 'rgba(239, 68, 68, 0.28)',
+              border: '6px solid rgba(239, 68, 68, 0.35)',
+              padding: '0.4rem 2rem',
+              borderRadius: '12px',
+              letterSpacing: '5px',
+              pointerEvents: 'none',
+              zIndex: 10,
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
+            }}>
+              VOID / CANCELLED
+            </div>
+          )}
+
           {/* Main Boarding Pass Section */}
           <div className="pass-main">
             <div className="pass-header">
@@ -75,7 +176,7 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
                 )}
                 <div>
                   <div className="airline-title">{flight?.airline || 'Aero Space Airline'}</div>
-                  <div className="airline-sub">Flight {flight?.flightNumber || '6E 100'}</div>
+                  <div className="airline-sub">Flight {legFlightNumber}</div>
                 </div>
               </div>
 
@@ -86,8 +187,8 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
             <div className="pass-route-strip">
               <div className="route-point">
-                <span className="route-iata">{flight?.origin || 'DEL'}</span>
-                <span className="route-city">{searchData?.from || flight?.origin}</span>
+                <span className="route-iata">{legOriginIata}</span>
+                <span className="route-city">{legOriginCity}</span>
                 <span className="route-time">{flight?.departureTime || '10:00 AM'}</span>
               </div>
 
@@ -100,8 +201,8 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
               </div>
 
               <div className="route-point" style={{ textAlign: 'right' }}>
-                <span className="route-iata">{flight?.destination || 'BOM'}</span>
-                <span className="route-city">{searchData?.to || flight?.destination}</span>
+                <span className="route-iata">{legDestIata}</span>
+                <span className="route-city">{legDestCity}</span>
                 <span className="route-time">{flight?.arrivalTime || '12:15 PM'}</span>
               </div>
             </div>
@@ -117,7 +218,7 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
               <div className="detail-item">
                 <span className="detail-label">DATE</span>
-                <strong className="detail-value">{searchData?.date || 'Confirmed'}</strong>
+                <strong className="detail-value">{legDate}</strong>
               </div>
 
               <div className="detail-item">
@@ -148,7 +249,7 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
               <div className="pass-barcode">
                 {/* Synthetic realistic barcode stripes */}
                 <div className="barcode-stripes" />
-                <span className="barcode-numbers">M1{activePassenger.lastName?.toUpperCase()}/{activePassenger.firstName?.toUpperCase()} E{bookingRef} {flight?.origin}{flight?.destination}</span>
+                <span className="barcode-numbers">M1{activePassenger.lastName?.toUpperCase()}/{activePassenger.firstName?.toUpperCase()} E{bookingRef} {legOriginIata}{legDestIata}</span>
               </div>
 
               <div className="pass-qr-box">
@@ -178,17 +279,17 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
               <div className="stub-row">
                 <span className="stub-label">FLIGHT</span>
-                <strong className="stub-val">{flight?.flightNumber}</strong>
+                <strong className="stub-val">{legFlightNumber}</strong>
               </div>
 
               <div className="stub-row">
                 <span className="stub-label">DATE</span>
-                <strong className="stub-val">{searchData?.date}</strong>
+                <strong className="stub-val">{legDate}</strong>
               </div>
 
               <div className="stub-row">
                 <span className="stub-label">FROM → TO</span>
-                <strong className="stub-val">{flight?.origin} → {flight?.destination}</strong>
+                <strong className="stub-val">{legOriginIata} → {legDestIata}</strong>
               </div>
 
               <div className="stub-seat-highlight">

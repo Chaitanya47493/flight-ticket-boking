@@ -1,24 +1,97 @@
-import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, User, AlertCircle, Lock, Crown, Shield, RefreshCw } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const SEAT_LETTERS_BUSINESS = ['A', 'C', 'D', 'F'];
 const SEAT_LETTERS_ECONOMY = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-// Pre-occupied realistic seats simulation
+// Fallback pre-occupied seats if flight has no Firestore inventory record yet
 const DEFAULT_OCCUPIED = new Set([
   '1A', '2D', '4B', '4C', '5E', '6A', '6B', '7C', '8D', '8E', '9F', '10A', '11C', '12B'
 ]);
 
-const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onConfirmSeats }) => {
+const SeatSelection = ({ selectedFlight, selectedClass, passengers, searchData, onBack, onConfirmSeats }) => {
   const passengerList = passengers?.list || [
     { id: 1, firstName: passengers?.firstName || 'Passenger', lastName: passengers?.lastName || '1' }
   ];
 
+  const isRoundTrip = searchData?.tripType === 'roundtrip' && !!searchData?.returnDate;
+  const [activeLeg, setActiveLeg] = useState('outbound'); // 'outbound' | 'return'
+
   const [activePassengerIndex, setActivePassengerIndex] = useState(0);
   const [cabinWarning, setCabinWarning] = useState('');
 
-  // Map of passengerIndex -> seatId (e.g. 0 -> { id: '4A', ... }, 1 -> { id: '4B', ... })
-  const [selectedSeats, setSelectedSeats] = useState({});
+  // Selected seats: passengerIndex -> seatObj
+  const [outboundSeats, setOutboundSeats] = useState({});
+  const [returnSeats, setReturnSeats] = useState({});
+
+  // Dynamic Occupied Seats loaded from Firestore seatInventory
+  const [occupiedSeatsMap, setOccupiedSeatsMap] = useState({
+    outbound: new Set(DEFAULT_OCCUPIED),
+    return: new Set(DEFAULT_OCCUPIED)
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Firestore Document IDs per leg: ${flightNumber}_${date}
+  const outboundDocId = `${selectedFlight?.flightNumber || 'FL100'}_${searchData?.date || 'default'}`;
+  const returnDocId = `${selectedFlight?.flightNumber || 'FL100'}-RT_${searchData?.returnDate || 'default'}`;
+
+  useEffect(() => {
+    if (!selectedFlight) return;
+
+    // Real-Time listener for Outbound Seat Inventory
+    const unsubOutbound = onSnapshot(doc(db, 'seatInventory', outboundDocId), (docSnap) => {
+      if (docSnap.exists() && Array.isArray(docSnap.data()?.occupiedSeats)) {
+        const remoteSeats = docSnap.data().occupiedSeats;
+        setOccupiedSeatsMap(prev => ({
+          ...prev,
+          outbound: new Set(remoteSeats.length > 0 ? remoteSeats : DEFAULT_OCCUPIED)
+        }));
+      } else {
+        setOccupiedSeatsMap(prev => ({
+          ...prev,
+          outbound: new Set(DEFAULT_OCCUPIED)
+        }));
+      }
+      setIsSyncing(false);
+    }, (err) => {
+      console.warn('Seat inventory sync error (outbound), using defaults:', err.message);
+      setOccupiedSeatsMap(prev => ({ ...prev, outbound: new Set(DEFAULT_OCCUPIED) }));
+      setIsSyncing(false);
+    });
+
+    let unsubReturn = () => {};
+    if (isRoundTrip) {
+      // Real-Time listener for Return Seat Inventory
+      unsubReturn = onSnapshot(doc(db, 'seatInventory', returnDocId), (docSnap) => {
+        if (docSnap.exists() && Array.isArray(docSnap.data()?.occupiedSeats)) {
+          const remoteSeats = docSnap.data().occupiedSeats;
+          setOccupiedSeatsMap(prev => ({
+            ...prev,
+            return: new Set(remoteSeats.length > 0 ? remoteSeats : DEFAULT_OCCUPIED)
+          }));
+        } else {
+          setOccupiedSeatsMap(prev => ({
+            ...prev,
+            return: new Set(DEFAULT_OCCUPIED)
+          }));
+        }
+      }, (err) => {
+        console.warn('Seat inventory sync error (return), using defaults:', err.message);
+        setOccupiedSeatsMap(prev => ({ ...prev, return: new Set(DEFAULT_OCCUPIED) }));
+      });
+    }
+
+    return () => {
+      unsubOutbound();
+      unsubReturn();
+    };
+  }, [outboundDocId, returnDocId, isRoundTrip, selectedFlight]);
+
+  // Current active selections and occupied set based on active tab
+  const currentSeats = activeLeg === 'outbound' ? outboundSeats : returnSeats;
+  const currentOccupied = occupiedSeatsMap[activeLeg] || DEFAULT_OCCUPIED;
 
   const classNameLower = (selectedClass?.name || '').toLowerCase();
   const isClassBusiness = classNameLower.includes('business') || classNameLower.includes('first') || classNameLower.includes('club') || classNameLower.includes('suite');
@@ -29,83 +102,82 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
     return name.includes('business') || name.includes('first') || name.includes('club') || name.includes('suite');
   });
 
-  // Business / Front rows: 1 to 3
-  // Economy / Main cabin: rows 4 to 12
   const businessRows = [1, 2, 3];
   const economyRows = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 
   const getSeatPrice = (row, letter) => {
-    // In Business class, all seats are complimentary
     if (isClassBusiness) return 0;
-    // On All-Economy flights, rows 1-3 are front-row extra legroom
     if (!flightHasBusinessClass && row <= 3) return 350;
-    // Row 4 is front row, Row 7 is emergency exit (extra legroom)
     if (row === 4 || row === 7) return 350;
-    // Window or Aisle in front rows
     if ((letter === 'A' || letter === 'F' || letter === 'C' || letter === 'D') && row <= 6) return 150;
-    return 0; // standard complimentary seat
+    return 0;
+  };
+
+  const updateActiveSeats = (newSeats) => {
+    if (activeLeg === 'outbound') {
+      setOutboundSeats(newSeats);
+    } else {
+      setReturnSeats(newSeats);
+    }
   };
 
   const handleSeatClick = (seatId, row, letter) => {
-    // Strictly Enforce Cabin Class restriction ONLY IF the aircraft has a Business Class cabin
     if (flightHasBusinessClass) {
       if (isClassBusiness && row > 3) {
-        setCabinWarning(`🔒 Seat ${seatId} is Locked: You booked Business Class (${selectedClass?.name}). You can ONLY select seats from Rows 1–3. Economy seats (Rows 4–12) cannot be booked.`);
+        setCabinWarning(`🔒 Seat ${seatId} is Locked: You booked Business Class (${selectedClass?.name}). You can ONLY select seats from Rows 1–3.`);
         return;
       }
       if (!isClassBusiness && row <= 3) {
-        setCabinWarning(`🔒 Seat ${seatId} is Locked: You booked Economy Class. Rows 1–3 are exclusively for Business Class passengers. Please select your seats from Rows 4–12.`);
+        setCabinWarning(`🔒 Seat ${seatId} is Locked: Rows 1–3 are exclusively for Business Class passengers. Please select your seats from Rows 4–12.`);
         return;
       }
     }
 
-    if (DEFAULT_OCCUPIED.has(seatId)) {
-      setCabinWarning(`Seat ${seatId} is already occupied by another passenger. Please choose an available seat.`);
+    if (currentOccupied.has(seatId)) {
+      setCabinWarning(`Seat ${seatId} is currently occupied on the ${activeLeg === 'outbound' ? 'Outbound' : 'Return'} flight. Please choose another seat.`);
       return;
     }
 
     setCabinWarning('');
 
-    // Check if another passenger in this group already has this seat
-    const existingIndex = Object.keys(selectedSeats).find(idx => selectedSeats[idx]?.id === seatId);
-
+    // Check if another passenger in this group already has this seat on this leg
+    const existingIndex = Object.keys(currentSeats).find(idx => currentSeats[idx]?.id === seatId);
     const price = getSeatPrice(row, letter);
     const newSeatObj = { id: seatId, row, letter, price };
 
     if (existingIndex !== undefined) {
       if (parseInt(existingIndex, 10) === activePassengerIndex) {
         // Deselect if clicking own seat
-        const updated = { ...selectedSeats };
+        const updated = { ...currentSeats };
         delete updated[activePassengerIndex];
-        setSelectedSeats(updated);
+        updateActiveSeats(updated);
         return;
       } else {
-        setCabinWarning(`Seat ${seatId} is already assigned to Passenger ${parseInt(existingIndex, 10) + 1}.`);
+        setCabinWarning(`Seat ${seatId} is already assigned to Passenger ${parseInt(existingIndex, 10) + 1} on this leg.`);
         return;
       }
     }
 
-    // Assign seat to active passenger
     const updated = {
-      ...selectedSeats,
+      ...currentSeats,
       [activePassengerIndex]: newSeatObj
     };
-    setSelectedSeats(updated);
+    updateActiveSeats(updated);
 
-    // Auto-advance to next unassigned passenger if any
+    // Auto-advance to next unassigned passenger if any on this leg
     const nextUnassigned = passengerList.findIndex((_, idx) => idx !== activePassengerIndex && !updated[idx]);
     if (nextUnassigned !== -1) {
       setActivePassengerIndex(nextUnassigned);
     }
   };
 
-  const getAutoAssignedSeats = (current = selectedSeats) => {
+  const getAutoAssignedSeatsForLeg = (legKey, current = {}) => {
+    const occupied = occupiedSeatsMap[legKey] || DEFAULT_OCCUPIED;
     const available = [];
     let rows;
     let letters;
 
     if (!flightHasBusinessClass) {
-      // All-Economy plane: any row 1-12 is bookable
       rows = [...businessRows, ...economyRows];
       letters = SEAT_LETTERS_ECONOMY;
     } else if (isClassBusiness) {
@@ -119,7 +191,7 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
     for (const r of rows) {
       for (const l of letters) {
         const id = `${r}${l}`;
-        if (!DEFAULT_OCCUPIED.has(id)) {
+        if (!occupied.has(id)) {
           available.push({ id, row: r, letter: l, price: getSeatPrice(r, l) });
         }
       }
@@ -142,23 +214,46 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
   };
 
   const handleAutoAssign = () => {
-    const newSeats = getAutoAssignedSeats({});
-    setSelectedSeats(newSeats);
+    const newSeats = getAutoAssignedSeatsForLeg(activeLeg, {});
+    updateActiveSeats(newSeats);
     setCabinWarning('');
   };
 
-  // Calculate total extra seat fees
-  const totalSeatFee = Object.values(selectedSeats).reduce((sum, s) => sum + (s?.price || 0), 0);
-  const allAssigned = passengerList.every((_, idx) => !!selectedSeats[idx]);
+  const outboundFee = Object.values(outboundSeats).reduce((sum, s) => sum + (s?.price || 0), 0);
+  const returnFee = Object.values(returnSeats).reduce((sum, s) => sum + (s?.price || 0), 0);
+  const totalSeatFee = isRoundTrip ? (outboundFee + returnFee) : outboundFee;
+
+  const outboundAllAssigned = passengerList.every((_, idx) => !!outboundSeats[idx]);
+  const returnAllAssigned = isRoundTrip ? passengerList.every((_, idx) => !!returnSeats[idx]) : true;
 
   const handleProceed = () => {
-    let finalSeats = { ...selectedSeats };
-    if (!allAssigned) {
-      finalSeats = getAutoAssignedSeats(selectedSeats);
-      setSelectedSeats(finalSeats);
+    let finalOutbound = { ...outboundSeats };
+    if (!outboundAllAssigned) {
+      finalOutbound = getAutoAssignedSeatsForLeg('outbound', outboundSeats);
+      setOutboundSeats(finalOutbound);
     }
-    const finalFee = Object.values(finalSeats).reduce((sum, s) => sum + (s?.price || 0), 0);
-    onConfirmSeats(finalSeats, finalFee);
+
+    let finalReturn = { ...returnSeats };
+    if (isRoundTrip && !returnAllAssigned) {
+      finalReturn = getAutoAssignedSeatsForLeg('return', returnSeats);
+      setReturnSeats(finalReturn);
+    }
+
+    const calcOutboundFee = Object.values(finalOutbound).reduce((sum, s) => sum + (s?.price || 0), 0);
+    const calcReturnFee = isRoundTrip ? Object.values(finalReturn).reduce((sum, s) => sum + (s?.price || 0), 0) : 0;
+    const finalFee = calcOutboundFee + calcReturnFee;
+
+    const finalPayload = isRoundTrip
+      ? {
+          outbound: finalOutbound,
+          return: finalReturn,
+          // Flat keys for backwards compatibility with single-leg views
+          ...finalOutbound,
+          isRoundTrip: true
+        }
+      : finalOutbound;
+
+    onConfirmSeats(finalPayload, finalFee);
   };
 
   return (
@@ -168,7 +263,7 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
           <h2>Select Your Seats</h2>
           <p>
             {selectedFlight?.airline} {selectedFlight?.flightNumber} &nbsp;•&nbsp;
-            {selectedFlight?.origin} → {selectedFlight?.destination} &nbsp;•&nbsp;
+            {selectedFlight?.origin} ⇄ {selectedFlight?.destination} &nbsp;•&nbsp;
             <span style={{
               background: isClassBusiness ? 'linear-gradient(135deg, rgba(234,179,8,0.2), rgba(245,158,11,0.2))' : 'rgba(99,102,241,0.2)',
               color: isClassBusiness ? '#fbbf24' : '#a5b4fc',
@@ -181,11 +276,109 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
             </span>
           </p>
         </div>
-        <button type="button" className="btn-secondary" onClick={handleAutoAssign} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Sparkles size={16} style={{ color: '#a5b4fc' }} />
-          Auto-Assign {selectedClass?.name} Seats
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {isSyncing && (
+            <span style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <RefreshCw size={12} className="animate-spin" /> Syncing live seats...
+            </span>
+          )}
+          <button type="button" className="btn-secondary" onClick={handleAutoAssign} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sparkles size={16} style={{ color: '#a5b4fc' }} />
+            Auto-Assign ({activeLeg === 'outbound' ? 'Outbound' : 'Return'})
+          </button>
+        </div>
       </div>
+
+      {/* Round-Trip Flight Leg Tabs */}
+      {isRoundTrip && (
+        <div className="trip-leg-tabs" style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <button
+            type="button"
+            className={`trip-leg-tab ${activeLeg === 'outbound' ? 'active' : ''}`}
+            onClick={() => { setActiveLeg('outbound'); setCabinWarning(''); }}
+            style={{
+              padding: '1rem',
+              borderRadius: '12px',
+              border: activeLeg === 'outbound' ? '2px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
+              background: activeLeg === 'outbound' ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)',
+              color: '#fff',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
+                ✈️ Leg 1: Outbound
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '2px' }}>
+                {selectedFlight?.origin} → {selectedFlight?.destination}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                {searchData?.date} • {selectedFlight?.flightNumber}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{
+                fontSize: '0.75rem',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: Object.keys(outboundSeats).length === passengerList.length ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.15)',
+                color: Object.keys(outboundSeats).length === passengerList.length ? '#4ade80' : '#fbbf24',
+                fontWeight: 600
+              }}>
+                {Object.keys(outboundSeats).length}/{passengerList.length} Seats
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={`trip-leg-tab ${activeLeg === 'return' ? 'active' : ''}`}
+            onClick={() => { setActiveLeg('return'); setCabinWarning(''); }}
+            style={{
+              padding: '1rem',
+              borderRadius: '12px',
+              border: activeLeg === 'return' ? '2px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
+              background: activeLeg === 'return' ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.5)',
+              color: '#fff',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
+                🔄 Leg 2: Return
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '2px' }}>
+                {selectedFlight?.destination} → {selectedFlight?.origin}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                {searchData?.returnDate} • {selectedFlight?.flightNumber}-RT
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{
+                fontSize: '0.75rem',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: Object.keys(returnSeats).length === passengerList.length ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.15)',
+                color: Object.keys(returnSeats).length === passengerList.length ? '#4ade80' : '#fbbf24',
+                fontWeight: 600
+              }}>
+                {Object.keys(returnSeats).length}/{passengerList.length} Seats
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Cabin Guidance Banner */}
       <div style={{
@@ -203,14 +396,14 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
           <>
             <Sparkles size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
             <span style={{ color: '#bae6fd' }}>
-              <strong>All-Economy Aircraft:</strong> This {selectedFlight?.airline} flight operates a single-class cabin. All seats across Rows 1–12 are available.
+              <strong>All-Economy Aircraft:</strong> All seats across Rows 1–12 are available.
             </span>
           </>
         ) : isClassBusiness ? (
           <>
             <Crown size={20} style={{ color: '#fbbf24', flexShrink: 0 }} />
             <span style={{ color: '#fef08a' }}>
-              <strong>Business Class Privilege:</strong> You have exclusive access to Rows 1–3 with extra-wide seating. Main Cabin seats are locked for your comfort.
+              <strong>Business Class Privilege:</strong> You have exclusive access to Rows 1–3 with extra-wide seating.
             </span>
           </>
         ) : (
@@ -251,7 +444,9 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
               <span className="cockpit-window" />
               <span className="cockpit-window" />
             </div>
-            <span className="nose-label">{selectedFlight?.airline || 'Aero Space'} • Boeing 737 / Airbus A320</span>
+            <span className="nose-label">
+              {selectedFlight?.airline || 'Aero Space'} • {activeLeg === 'outbound' ? 'Outbound' : 'Return'} ({activeLeg === 'outbound' ? selectedFlight?.origin : selectedFlight?.destination} → {activeLeg === 'outbound' ? selectedFlight?.destination : selectedFlight?.origin})
+            </span>
           </div>
 
           {/* Seat Legend */}
@@ -301,8 +496,8 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
                   <div className="seat-group">
                     {['A', 'C'].map(letter => {
                       const id = `${row}${letter}`;
-                      const isOccupied = DEFAULT_OCCUPIED.has(id);
-                      const assignedIdx = Object.keys(selectedSeats).find(idx => selectedSeats[idx]?.id === id);
+                      const isOccupied = currentOccupied.has(id);
+                      const assignedIdx = Object.keys(currentSeats).find(idx => currentSeats[idx]?.id === id);
                       const isSelected = assignedIdx !== undefined;
                       const isLocked = flightHasBusinessClass && !isClassBusiness;
 
@@ -326,8 +521,8 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
                   <div className="seat-group">
                     {['D', 'F'].map(letter => {
                       const id = `${row}${letter}`;
-                      const isOccupied = DEFAULT_OCCUPIED.has(id);
-                      const assignedIdx = Object.keys(selectedSeats).find(idx => selectedSeats[idx]?.id === id);
+                      const isOccupied = currentOccupied.has(id);
+                      const assignedIdx = Object.keys(currentSeats).find(idx => currentSeats[idx]?.id === id);
                       const isSelected = assignedIdx !== undefined;
                       const isLocked = flightHasBusinessClass && !isClassBusiness;
 
@@ -378,8 +573,8 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
                     <div className="seat-group">
                       {['A', 'B', 'C'].map(letter => {
                         const id = `${row}${letter}`;
-                        const isOccupied = DEFAULT_OCCUPIED.has(id);
-                        const assignedIdx = Object.keys(selectedSeats).find(idx => selectedSeats[idx]?.id === id);
+                        const isOccupied = currentOccupied.has(id);
+                        const assignedIdx = Object.keys(currentSeats).find(idx => currentSeats[idx]?.id === id);
                         const isSelected = assignedIdx !== undefined;
                         const isExtra = !isClassBusiness && (isExitRow || row === 4);
                         const isLocked = flightHasBusinessClass && isClassBusiness;
@@ -404,8 +599,8 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
                     <div className="seat-group">
                       {['D', 'E', 'F'].map(letter => {
                         const id = `${row}${letter}`;
-                        const isOccupied = DEFAULT_OCCUPIED.has(id);
-                        const assignedIdx = Object.keys(selectedSeats).find(idx => selectedSeats[idx]?.id === id);
+                        const isOccupied = currentOccupied.has(id);
+                        const assignedIdx = Object.keys(currentSeats).find(idx => currentSeats[idx]?.id === id);
                         const isSelected = assignedIdx !== undefined;
                         const isExtra = !isClassBusiness && (isExitRow || row === 4);
                         const isLocked = flightHasBusinessClass && isClassBusiness;
@@ -433,18 +628,18 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
 
         {/* Seat Summary & Passenger Assignment Sidebar */}
         <div className="seat-sidebar glass-panel" style={{ padding: '1.75rem' }}>
-          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <User size={20} className="logo-icon" />
-            Passenger Seats
+            Passenger Seats ({activeLeg === 'outbound' ? 'Outbound' : 'Return'})
           </h3>
 
           <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1.25rem' }}>
-            Click a traveler to select or change their seat:
+            Click a traveler below to assign their {activeLeg === 'outbound' ? 'outbound' : 'return'} seat:
           </p>
 
           <div className="passenger-seat-list">
             {passengerList.map((passenger, idx) => {
-              const seat = selectedSeats[idx];
+              const seat = currentSeats[idx];
               const isActive = activePassengerIndex === idx;
 
               return (
@@ -479,25 +674,35 @@ const SeatSelection = ({ selectedFlight, selectedClass, passengers, onBack, onCo
           {/* Pricing summary */}
           <div className="seat-fee-summary" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-              <span style={{ color: '#94a3b8' }}>Booked Class:</span>
+              <span style={{ color: '#94a3b8' }}>Booked Cabin:</span>
               <strong style={{ color: isClassBusiness ? '#fbbf24' : '#e2e8f0' }}>{selectedClass?.name}</strong>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-              <span style={{ color: '#94a3b8' }}>Allowed Rows:</span>
-              <strong style={{ color: '#a5b4fc' }}>
-                {flightHasBusinessClass ? (isClassBusiness ? 'Rows 1–3 (Business)' : 'Rows 4–12 (Economy)') : 'Rows 1–12 (All-Economy)'}
-              </strong>
-            </div>
+            {isRoundTrip && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Outbound Seat Fee:</span>
+                  <span style={{ color: outboundFee > 0 ? '#38bdf8' : '#4ade80' }}>
+                    {outboundFee > 0 ? `+₹${outboundFee.toLocaleString()}` : 'Free'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Return Seat Fee:</span>
+                  <span style={{ color: returnFee > 0 ? '#38bdf8' : '#4ade80' }}>
+                    {returnFee > 0 ? `+₹${returnFee.toLocaleString()}` : 'Free'}
+                  </span>
+                </div>
+              </>
+            )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-              <span style={{ color: '#94a3b8' }}>Seat Fees:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', marginBottom: '0.5rem', borderTop: isRoundTrip ? '1px dashed rgba(255,255,255,0.08)' : 'none', paddingTop: isRoundTrip ? '0.4rem' : '0' }}>
+              <span style={{ color: '#94a3b8' }}>Total Seat Fees:</span>
               <strong style={{ color: totalSeatFee > 0 ? '#38bdf8' : '#4ade80' }}>
                 {totalSeatFee > 0 ? `+₹${totalSeatFee.toLocaleString()}` : 'Complimentary'}
               </strong>
             </div>
 
-            {!allAssigned && (
+            {((!outboundAllAssigned && activeLeg === 'outbound') || (!returnAllAssigned && activeLeg === 'return')) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.75rem' }}>
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 <span>Unselected seats will be auto-assigned in your cabin.</span>

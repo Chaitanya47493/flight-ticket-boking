@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import FlightResults from './components/FlightResults';
@@ -10,7 +10,7 @@ import MyBookings from './components/MyBookings';
 import LoginPage from './components/LoginPage';
 import { Search, Plane, User, Armchair, CreditCard, CheckCircle } from 'lucide-react';
 import { db, auth } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import emailjs from '@emailjs/browser';
 import './App.css';
@@ -89,13 +89,15 @@ function App() {
     const basePrice = bookingData.selectedClass?.price || 0;
     const calculatedTotal = (basePrice * passengerCount) + (bookingData.seatFee || 0);
 
+    const effectiveTotal = paymentData.totalAmountPaid || calculatedTotal;
+
     // Defense-in-depth: Ensure no sensitive raw card/CVV data can ever reach storage
     const sanitizedPayment = {
       cardLast4: paymentData.cardLast4 || (paymentData.cardNumber ? paymentData.cardNumber.replace(/\D/g, '').slice(-4) : '1234'),
       cardBrand: paymentData.cardBrand || 'Card',
       maskedCardNumber: paymentData.maskedCardNumber || `•••• •••• •••• ${paymentData.cardLast4 || '1234'}`,
       nameOnCard: paymentData.nameOnCard || '',
-      totalAmountPaid: calculatedTotal,
+      totalAmountPaid: effectiveTotal,
       paymentMethod: 'card_simulation',
       status: 'completed'
     };
@@ -103,7 +105,9 @@ function App() {
     const finalBookingData = {
       ...bookingData,
       payment: sanitizedPayment,
-      totalAmountPaid: calculatedTotal,
+      fareBreakdown: paymentData.fareBreakdown || null,
+      status: 'CONFIRMED',
+      totalAmountPaid: effectiveTotal,
       userId: user.uid,
       createdAt: new Date()
     };
@@ -114,8 +118,55 @@ function App() {
       const docRef = await addDoc(collection(db, 'bookings'), finalBookingData);
       setBookingId(docRef.id);
 
-      // Extract seat tags & passenger names
-      const assignedSeatsStr = Object.values(finalBookingData.selectedSeats || {}).map(s => s.id).join(', ') || 'Auto-Assigned';
+      // Write newly booked seat IDs into seatInventory
+      try {
+        const isRoundTrip = finalBookingData.searchData?.tripType === 'roundtrip' && !!finalBookingData.searchData?.returnDate;
+        const flightNum = finalBookingData.flight.flightNumber || 'FL100';
+        const outboundDate = finalBookingData.searchData.date;
+
+        if (isRoundTrip && finalBookingData.selectedSeats?.outbound && finalBookingData.selectedSeats?.return) {
+          const outboundSeatIds = Object.values(finalBookingData.selectedSeats.outbound).map(s => s.id).filter(Boolean);
+          const returnSeatIds = Object.values(finalBookingData.selectedSeats.return).map(s => s.id).filter(Boolean);
+
+          const outboundDocId = `${flightNum}_${outboundDate}`;
+          const returnDocId = `${flightNum}-RT_${finalBookingData.searchData.returnDate}`;
+
+          if (outboundSeatIds.length > 0) {
+            await setDoc(doc(db, 'seatInventory', outboundDocId), {
+              occupiedSeats: arrayUnion(...outboundSeatIds)
+            }, { merge: true });
+          }
+
+          if (returnSeatIds.length > 0) {
+            await setDoc(doc(db, 'seatInventory', returnDocId), {
+              occupiedSeats: arrayUnion(...returnSeatIds)
+            }, { merge: true });
+          }
+        } else {
+          const seatsObj = finalBookingData.selectedSeats?.outbound || finalBookingData.selectedSeats || {};
+          const bookedSeats = Object.values(seatsObj).map(s => s.id).filter(Boolean);
+          const docId = `${flightNum}_${outboundDate}`;
+          if (bookedSeats.length > 0) {
+            await setDoc(doc(db, 'seatInventory', docId), {
+              occupiedSeats: arrayUnion(...bookedSeats)
+            }, { merge: true });
+          }
+        }
+      } catch (invErr) {
+        console.warn('Seat inventory sync notice:', invErr.message);
+      }
+
+      // Extract seat tags & passenger names (supporting round-trip)
+      let assignedSeatsStr = 'Auto-Assigned';
+      if (finalBookingData.selectedSeats?.outbound && finalBookingData.selectedSeats?.return) {
+        const outSeats = Object.values(finalBookingData.selectedSeats.outbound).map(s => s.id).join(', ');
+        const retSeats = Object.values(finalBookingData.selectedSeats.return).map(s => s.id).join(', ');
+        assignedSeatsStr = `Outbound: ${outSeats} | Return: ${retSeats}`;
+      } else {
+        const flatSeats = finalBookingData.selectedSeats?.outbound || finalBookingData.selectedSeats || {};
+        assignedSeatsStr = Object.values(flatSeats).map(s => s.id).join(', ') || 'Auto-Assigned';
+      }
+
       const passengerNamesStr = finalBookingData.passengers?.list 
         ? finalBookingData.passengers.list.map(p => `${p.firstName} ${p.lastName}`).join(', ')
         : `${finalBookingData.passengers?.firstName || ''} ${finalBookingData.passengers?.lastName || ''}`;
@@ -190,7 +241,7 @@ function App() {
 
             <div style="background: #e0e7ff; border-radius: 8px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
               <span style="color: #3730a3; font-weight: 600;">Total Paid</span>
-              <strong style="color: #312e81; font-size: 20px;">₹${calculatedTotal.toLocaleString()}</strong>
+              <strong style="color: #312e81; font-size: 20px;">₹${effectiveTotal.toLocaleString()}</strong>
             </div>
           </div>
           
@@ -366,6 +417,7 @@ function App() {
                 selectedFlight={bookingData.flight}
                 selectedClass={bookingData.selectedClass}
                 passengers={bookingData.passengers}
+                searchData={searchData}
                 onBack={() => setCurrentStep(3)}
                 onConfirmSeats={handleSeatConfirm}
               />
