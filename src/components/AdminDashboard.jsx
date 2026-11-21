@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, 
   Search, 
@@ -12,99 +12,99 @@ import {
   Plane, 
   User, 
   Layers,
-  FileText
+  FileText,
+  Download,
+  Ticket,
+  Radar,
+  Ban,
+  AlertTriangle
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, getDocs, query, orderBy, where, doc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import BoardingPassModal from './BoardingPassModal';
 
-const AdminDashboard = ({ onClose }) => {
+async function fetchAdminBookings(currentUserId) {
+  let docsList = [];
+  try {
+    const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+      docsList.push({ id: doc.id, ...doc.data() });
+    });
+    return { docsList, error: null };
+  } catch (colErr) {
+    try {
+      const fallbackSnapshot = await getDocs(collection(db, 'bookings'));
+      fallbackSnapshot.forEach((doc) => {
+        docsList.push({ id: doc.id, ...doc.data() });
+      });
+      docsList.sort((a, b) => {
+        const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (new Date(a.createdAt || 0)).getTime();
+        const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (new Date(b.createdAt || 0)).getTime();
+        return tB - tA;
+      });
+      return { docsList, error: null };
+    } catch {
+      if (currentUserId) {
+        const userQ = query(collection(db, 'bookings'), where('userId', '==', currentUserId));
+        const userSnap = await getDocs(userQ);
+        userSnap.forEach((doc) => {
+          docsList.push({ id: doc.id, ...doc.data() });
+        });
+        if (docsList.length > 0) {
+          return {
+            docsList,
+            error: 'Notice: Displaying your personal bookings. To unlock all platform customer bookings globally, deploy the updated firestore.rules in Firebase Console.'
+          };
+        }
+      }
+      throw colErr;
+    }
+  }
+}
+
+const AdminDashboard = ({ onClose, onTrackFlight }) => {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'CONFIRMED' | 'CANCELLED'
   const [error, setError] = useState(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
-  // Fetch all bookings from Firestore
-  const fetchAllBookings = useCallback(async () => {
-    try {
-      let docsList = [];
-      try {
-        const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-          docsList.push({ id: doc.id, ...doc.data() });
-        });
-      } catch {
-        // Fallback if index or createdAt ordering fails
-        const fallbackSnapshot = await getDocs(collection(db, 'bookings'));
-        fallbackSnapshot.forEach((doc) => {
-          docsList.push({ id: doc.id, ...doc.data() });
-        });
-        docsList.sort((a, b) => {
-          const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (new Date(a.createdAt || 0)).getTime();
-          const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (new Date(b.createdAt || 0)).getTime();
-          return tB - tA;
-        });
-      }
-      setBookings(docsList);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load bookings for Admin:', err);
-      setError('Could not load bookings. Please verify Firestore security rules allow admin access.');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
+  // Admin action states
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+  const [activeBoardingPass, setActiveBoardingPass] = useState(null);
 
   useEffect(() => {
-    let isCancelled = false;
-    const runInitialLoad = async () => {
-      try {
-        let docsList = [];
-        try {
-          const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
-          const querySnapshot = await getDocs(q);
-          querySnapshot.forEach((doc) => {
-            docsList.push({ id: doc.id, ...doc.data() });
-          });
-        } catch {
-          const fallbackSnapshot = await getDocs(collection(db, 'bookings'));
-          fallbackSnapshot.forEach((doc) => {
-            docsList.push({ id: doc.id, ...doc.data() });
-          });
-          docsList.sort((a, b) => {
-            const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (new Date(a.createdAt || 0)).getTime();
-            const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (new Date(b.createdAt || 0)).getTime();
-            return tB - tA;
-          });
-        }
-        if (!isCancelled) {
-          setBookings(docsList);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          console.error('Failed to load bookings for Admin:', err);
-          setError('Could not load bookings. Please verify Firestore security rules allow admin access.');
-        }
-      } finally {
-        if (!isCancelled) {
+    let isMounted = true;
+    const currentUserId = auth.currentUser?.uid;
+
+    fetchAdminBookings(currentUserId)
+      .then(res => {
+        if (isMounted) {
+          setBookings(res.docsList);
+          setError(res.error);
           setIsLoading(false);
+          setIsRefreshing(false);
         }
-      }
-    };
+      })
+      .catch(err => {
+        if (isMounted) {
+          console.error('Failed to load bookings for Admin:', err);
+          setError('Could not load global bookings. Please update your Firestore Rules in Firebase Console to grant admin access to your email.');
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      });
 
-    runInitialLoad();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+    return () => { isMounted = false; };
+  }, [reloadTrigger]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchAllBookings();
+    setReloadTrigger(prev => prev + 1);
   };
 
   // Summary Metrics
@@ -204,6 +204,97 @@ const AdminDashboard = ({ onClose }) => {
     return '1 Passenger';
   };
 
+  // Export filtered table records to CSV spreadsheet
+  const handleExportCSV = () => {
+    if (filteredBookings.length === 0) return;
+    const headers = ['PNR', 'Airline', 'FlightNumber', 'Origin', 'Destination', 'CabinClass', 'PassengerName', 'AmountINR', 'Status', 'DateBooked'];
+    const rows = filteredBookings.map(b => [
+      `"${b.id ? b.id.substring(0, 6).toUpperCase() : ''}"`,
+      `"${b.flight?.airline || ''}"`,
+      `"${b.flight?.flightNumber || ''}"`,
+      `"${b.flight?.origin || ''}"`,
+      `"${b.flight?.destination || ''}"`,
+      `"${b.selectedClass?.name || 'Economy'}"`,
+      `"${getPrimaryPassenger(b.passengers)}"`,
+      Number(b.totalAmountPaid || 0),
+      `"${b.status || 'CONFIRMED'}"`,
+      `"${formatDate(b.createdAt)}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `aerospace_bookings_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Admin Cancel Booking and Release Seat Inventory
+  const handleAdminCancel = async () => {
+    if (!cancellingBooking) return;
+    setIsProcessingCancel(true);
+    try {
+      const totalPaid = Number(cancellingBooking.totalAmountPaid || 0);
+      const refundAmount = Math.round(totalPaid * 0.8);
+
+      // 1. Update Firestore document
+      await updateDoc(doc(db, 'bookings', cancellingBooking.id), {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledBy: 'ADMIN',
+        refundAmount
+      });
+
+      // 2. Release seat inventory
+      const isRoundTrip = cancellingBooking.searchData?.tripType === 'roundtrip' && !!cancellingBooking.searchData?.returnDate;
+      const flightNum = cancellingBooking.flight?.flightNumber || 'FL100';
+      const outboundDate = cancellingBooking.searchData?.date;
+
+      if (isRoundTrip && cancellingBooking.selectedSeats?.outbound && cancellingBooking.selectedSeats?.return) {
+        const outboundSeatIds = Object.values(cancellingBooking.selectedSeats.outbound).map(s => s.id).filter(Boolean);
+        const returnSeatIds = Object.values(cancellingBooking.selectedSeats.return).map(s => s.id).filter(Boolean);
+        const outboundDocId = `${flightNum}_${outboundDate}`;
+        const returnDocId = `${flightNum}-RT_${cancellingBooking.searchData.returnDate}`;
+
+        if (outboundSeatIds.length > 0) {
+          await updateDoc(doc(db, 'seatInventory', outboundDocId), {
+            occupiedSeats: arrayRemove(...outboundSeatIds)
+          }).catch(() => {});
+        }
+        if (returnSeatIds.length > 0) {
+          await updateDoc(doc(db, 'seatInventory', returnDocId), {
+            occupiedSeats: arrayRemove(...returnSeatIds)
+          }).catch(() => {});
+        }
+      } else {
+        const flatSeats = cancellingBooking.selectedSeats?.outbound || cancellingBooking.selectedSeats || {};
+        const bookedSeats = Object.values(flatSeats).map(s => s.id).filter(Boolean);
+        const docId = `${flightNum}_${outboundDate}`;
+        if (bookedSeats.length > 0) {
+          await updateDoc(doc(db, 'seatInventory', docId), {
+            occupiedSeats: arrayRemove(...bookedSeats)
+          }).catch(() => {});
+        }
+      }
+
+      // 3. Update local state
+      setBookings(prev => prev.map(b => b.id === cancellingBooking.id ? {
+        ...b,
+        status: 'CANCELLED',
+        cancelledAt: new Date().toISOString()
+      } : b));
+
+      setCancellingBooking(null);
+    } catch (err) {
+      console.error('Failed to cancel booking:', err);
+      alert('Failed to cancel booking: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsProcessingCancel(false);
+    }
+  };
+
   return (
     <div className="admin-dashboard-container animate-fade-in" style={{ padding: '1.5rem', maxWidth: '1280px', margin: '0 auto', color: '#fff' }}>
       {/* Header Bar */}
@@ -246,6 +337,30 @@ const AdminDashboard = ({ onClose }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={filteredBookings.length === 0}
+            title={filteredBookings.length === 0 ? "No records to export" : "Export filtered bookings to CSV"}
+            style={{
+              padding: '0.55rem 1rem',
+              borderRadius: '8px',
+              background: filteredBookings.length === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(16, 185, 129, 0.15)',
+              border: filteredBookings.length === 0 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(16, 185, 129, 0.35)',
+              color: filteredBookings.length === 0 ? '#64748b' : '#34d399',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: filteredBookings.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Download size={15} />
+            <span>Export CSV</span>
+          </button>
+
           <button
             type="button"
             onClick={handleRefresh}
@@ -517,19 +632,20 @@ const AdminDashboard = ({ onClose }) => {
                 <th style={{ padding: '0.85rem 1rem' }}>Date Booked</th>
                 <th style={{ padding: '0.85rem 1rem' }}>Amount</th>
                 <th style={{ padding: '0.85rem 1rem' }}>Status</th>
+                <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Admin Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
                     <RefreshCw size={28} className="animate-spin" style={{ margin: '0 auto 10px auto', display: 'block', color: '#fbbf24' }} />
                     Loading flight bookings from Firestore...
                   </td>
                 </tr>
               ) : filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
                     <FileText size={32} style={{ margin: '0 auto 10px auto', display: 'block', opacity: 0.5 }} />
                     No bookings found matching your search.
                   </td>
@@ -618,6 +734,97 @@ const AdminDashboard = ({ onClose }) => {
                           {isCancelled ? 'CANCELLED' : 'CONFIRMED'}
                         </span>
                       </td>
+
+                      {/* Admin Actions */}
+                      <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                          {/* Boarding Pass Inspection */}
+                          <button
+                            type="button"
+                            onClick={() => setActiveBoardingPass(b)}
+                            title="Inspect & Print Digital Boarding Pass"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '5px 9px',
+                              borderRadius: '6px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)'}
+                          >
+                            <Ticket size={13} />
+                            <span>Pass</span>
+                          </button>
+
+                          {/* AeroRadar 3D Tracking */}
+                          {onTrackFlight && (
+                            <button
+                              type="button"
+                              onClick={() => onTrackFlight(b)}
+                              title="Track Live Telemetry in AeroRadar 3D"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '5px 9px',
+                                borderRadius: '6px',
+                                background: 'rgba(168, 85, 247, 0.12)',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                color: '#c084fc',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.25)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.12)'}
+                            >
+                              <Radar size={13} />
+                              <span>Radar</span>
+                            </button>
+                          )}
+
+                          {/* Cancel Booking & Release Seats */}
+                          {!isCancelled ? (
+                            <button
+                              type="button"
+                              onClick={() => setCancellingBooking(b)}
+                              title="Admin Cancel Booking & Release Occupied Seats"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '5px 9px',
+                                borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: '#f87171',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
+                            >
+                              <Ban size={13} />
+                              <span>Cancel</span>
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', padding: '0 4px' }}>
+                              Released
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -626,6 +833,132 @@ const AdminDashboard = ({ onClose }) => {
           </table>
         </div>
       </div>
+
+      {/* Boarding Pass Modal for Inspection */}
+      {activeBoardingPass && (
+        <BoardingPassModal
+          isOpen={true}
+          onClose={() => setActiveBoardingPass(null)}
+          bookingData={activeBoardingPass}
+          bookingId={activeBoardingPass.id}
+        />
+      )}
+
+      {/* Admin Cancel Confirmation Modal */}
+      {cancellingBooking && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.5rem'
+        }}>
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+            color: '#fff'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#f87171' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Cancel Booking & Release Seats</h3>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>PNR #{cancellingBooking.id?.substring(0, 6).toUpperCase()}</p>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: '8px',
+              padding: '1rem',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+              color: '#cbd5e1',
+              marginBottom: '1.25rem',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              <p style={{ margin: '0 0 0.5rem 0' }}>
+                Are you sure you want to cancel booking for passenger <strong>{getPrimaryPassenger(cancellingBooking.passengers)}</strong>?
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+                <li>Status will be marked as <strong style={{ color: '#f87171' }}>CANCELLED</strong>.</li>
+                <li>Reserved seat(s) will be immediately released back to real-time seat inventory for other travelers.</li>
+                <li>Refund calculated: <strong>₹{Math.round(Number(cancellingBooking.totalAmountPaid || 0) * 0.8).toLocaleString('en-IN')}</strong> (80% policy).</li>
+              </ul>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setCancellingBooking(null)}
+                disabled={isProcessingCancel}
+                style={{
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#e2e8f0',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Keep Booking
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminCancel}
+                disabled={isProcessingCancel}
+                style={{
+                  padding: '0.55rem 1.25rem',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: isProcessingCancel ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                {isProcessingCancel ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban size={14} />
+                    <span>Confirm Cancel & Release</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,7 +3,8 @@ export const ADMIN_EMAILS = [
   'admin@aerospace.com',
   'developer@aerospace.com',
   'rohit@aerospace.com',
-  'keertirohit@gmail.com'
+  'keertirohit@gmail.com',
+  'rohitkopalle@gmail.com'
   // 👉 Add your admin email address here to unlock the Admin Dashboard in the header
 ];
 

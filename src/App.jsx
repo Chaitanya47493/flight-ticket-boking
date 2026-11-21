@@ -480,6 +480,11 @@ function App() {
         ) : showAdmin ? (
           <AdminDashboard
             onClose={() => setShowAdmin(false)}
+            onTrackFlight={(booking) => {
+              setTrackedBooking(booking);
+              setShowRadar(true);
+              setShowAdmin(false);
+            }}
           />
         ) : showMyBookings ? (
           <MyBookings

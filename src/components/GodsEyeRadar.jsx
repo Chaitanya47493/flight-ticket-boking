@@ -73,7 +73,17 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlane, setSelectedPlane] = useState(null);
+  const [selectedPlane, setSelectedPlane] = useState(() => {
+    if (trackedBooking?.flight) {
+      return {
+        icao24: 'TRACKED_BOOKING',
+        callsign: trackedBooking.flight.flightNumber,
+        isTrackedBooking: true
+      };
+    }
+    return null;
+  });
+  const [isolateTrackedFlight, setIsolateTrackedFlight] = useState(!!trackedBooking);
   const [hoveredPlane, setHoveredPlane] = useState(null);
   const [isFollowingPlane, setIsFollowingPlane] = useState(false);
   const [visualMode, setVisualMode] = useState('dark');
@@ -133,6 +143,21 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
     setPrevTrackedKey(trackedRouteKey);
     if (!trackedRouteKey) {
       setTrackedWeather(null);
+    }
+  }
+
+  // Keep selectedPlane and isolation synced if tracked flight prop changes
+  const trackedFlightNumber = trackedBooking?.flight?.flightNumber;
+  const [prevTrackedFlight, setPrevTrackedFlight] = useState(trackedFlightNumber);
+  if (prevTrackedFlight !== trackedFlightNumber) {
+    setPrevTrackedFlight(trackedFlightNumber);
+    if (trackedFlightNumber) {
+      setSelectedPlane({
+        icao24: 'TRACKED_BOOKING',
+        callsign: trackedFlightNumber,
+        isTrackedBooking: true
+      });
+      setIsolateTrackedFlight(true);
     }
   }
 
@@ -237,7 +262,7 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
       if (routeDetails) {
         const midLat = (routeDetails.originCoord.lat + routeDetails.destCoord.lat) / 2;
         const midLng = (routeDetails.originCoord.lng + routeDetails.destCoord.lng) / 2;
-        globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 1.5 }, 1200);
+        globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 0.95 }, 1200);
       } else {
         globeRef.current.pointOfView({ lat: 20.5937, lng: 78.9629, altitude: 1.6 }, 1000);
       }
@@ -260,6 +285,38 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
 
   // ── 1. FILTERED PLANES (Category Filter + Search + Enriched Corridors) ──
   const { filteredPlanes, commercialCount } = useMemo(() => {
+    // Synthesize active tracked booking flight if present
+    let trackedPlaneObj = null;
+    if (routeDetails) {
+      const curLat = routeDetails.originCoord.lat + (routeDetails.destCoord.lat - routeDetails.originCoord.lat) * trackedProgress;
+      const curLng = routeDetails.originCoord.lng + (routeDetails.destCoord.lng - routeDetails.originCoord.lng) * trackedProgress;
+      trackedPlaneObj = {
+        icao24: 'TRACKED_BOOKING',
+        callsign: routeDetails.flightNumber,
+        lat: curLat,
+        lng: curLng,
+        altitudeMeters: 10668,
+        velocityMs: 235,
+        heading: routeDetails.heading,
+        originCountry: 'India',
+        onGround: false,
+        route: `${routeDetails.originIata} → ${routeDetails.destIata}`,
+        isTrackedBooking: true,
+        pnr: routeDetails.pnr,
+        airlineInfo: { name: routeDetails.airline, isCommercial: true, color: '#ec4899' },
+        corridor: {
+          routeLabel: `${routeDetails.originCoord.city} (${routeDetails.originIata}) → ${routeDetails.destCoord.city} (${routeDetails.destIata})`,
+          origin: routeDetails.originCoord,
+          destination: routeDetails.destCoord
+        }
+      };
+    }
+
+    // When isolating tracked flight, display ONLY that specific flight on radar
+    if (trackedPlaneObj && isolateTrackedFlight) {
+      return { filteredPlanes: [trackedPlaneObj], commercialCount: 1 };
+    }
+
     let commCount = 0;
 
     const enriched = planes.map(p => {
@@ -293,35 +350,12 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
       );
     }
 
-    // Synthesize active tracked booking flight if present
-    if (routeDetails) {
-      const curLat = routeDetails.originCoord.lat + (routeDetails.destCoord.lat - routeDetails.originCoord.lat) * trackedProgress;
-      const curLng = routeDetails.originCoord.lng + (routeDetails.destCoord.lng - routeDetails.originCoord.lng) * trackedProgress;
-      const trackedPlaneObj = {
-        icao24: 'TRACKED_BOOKING',
-        callsign: routeDetails.flightNumber,
-        lat: curLat,
-        lng: curLng,
-        altitudeMeters: 10668,
-        velocityMs: 235,
-        heading: routeDetails.heading,
-        originCountry: 'India',
-        onGround: false,
-        route: `${routeDetails.originIata} → ${routeDetails.destIata}`,
-        isTrackedBooking: true,
-        pnr: routeDetails.pnr,
-        airlineInfo: { name: routeDetails.airline, isCommercial: true, color: '#ec4899' },
-        corridor: {
-          routeLabel: `${routeDetails.originCoord.city} (${routeDetails.originIata}) → ${routeDetails.destCoord.city} (${routeDetails.destIata})`,
-          origin: routeDetails.originCoord,
-          destination: routeDetails.destCoord
-        }
-      };
+    if (trackedPlaneObj) {
       list = [trackedPlaneObj, ...list];
     }
 
     return { filteredPlanes: list, commercialCount: commCount };
-  }, [planes, searchQuery, filterMode, routeDetails, trackedProgress]);
+  }, [planes, searchQuery, filterMode, routeDetails, trackedProgress, isolateTrackedFlight]);
 
   // LIVE SYNCHRONIZED TARGET: Keeps selected plane's telemetry, position & corridor updated with live motion
   const liveSelectedPlane = useMemo(() => {
@@ -844,6 +878,30 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
 
           {/* Category Filter Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {routeDetails && (
+              <button
+                type="button"
+                onClick={() => setIsolateTrackedFlight(!isolateTrackedFlight)}
+                title={isolateTrackedFlight ? "Switch to show all airspace traffic" : "Isolate tracked flight only"}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: isolateTrackedFlight ? 'rgba(236, 72, 153, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                  border: isolateTrackedFlight ? '1px solid #ec4899' : '1px solid rgba(255, 255, 255, 0.15)',
+                  color: isolateTrackedFlight ? '#f472b6' : '#cbd5e1',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Crosshair size={12} />
+                <span>{isolateTrackedFlight ? `Isolated: ${routeDetails.flightNumber}` : 'Isolate Flight'}</span>
+              </button>
+            )}
             <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Filter size={11} /> Airspace Filter:
             </span>
@@ -1073,8 +1131,14 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
                 if (globeRef.current) {
                   const midLat = (routeDetails.originCoord.lat + routeDetails.destCoord.lat) / 2;
                   const midLng = (routeDetails.originCoord.lng + routeDetails.destCoord.lng) / 2;
-                  globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 1.4 }, 1000);
+                  globeRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 0.95 }, 1000);
                 }
+                setSelectedPlane({
+                  icao24: 'TRACKED_BOOKING',
+                  callsign: routeDetails.flightNumber,
+                  isTrackedBooking: true
+                });
+                setIsolateTrackedFlight(true);
               }}
               style={{
                 background: 'rgba(236, 72, 153, 0.2)',
@@ -1087,7 +1151,7 @@ const GodsEyeRadar = ({ trackedBooking, onClose }) => {
                 fontWeight: 600
               }}
             >
-              Focus Route
+              Focus Flight
             </button>
           </div>
 

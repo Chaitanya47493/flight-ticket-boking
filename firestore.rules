@@ -17,10 +17,8 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.email in [
-          'admin@aerospace.com',
-          'developer@aerospace.com',
-          'rohit@aerospace.com',
-          'keertirohit@gmail.com'
+          'kottamkrishnachaitanya@gmail.com',
+          'rohitkopalle@gmail.com'
           // Add your administrator email address here
         ] || request.auth.token.admin == true
       );
