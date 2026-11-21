@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import FlightCard from './FlightCard';
+import FarePredictorStrip from './FarePredictorStrip';
 import { 
   ArrowLeft, Loader2, ChevronDown, Filter, ArrowUpDown, Clock, DollarSign, 
   Sunrise, Sunset, X, Sun, CloudSun, CloudRain, CloudLightning, CloudFog, 
   CloudDrizzle, CloudSnow, Wind, Eye, ShieldAlert, CheckCircle2, AlertTriangle, Activity 
 } from 'lucide-react';
-import { fetchFlights } from '../utils/flightSimulator';
+import { fetchFlights, getLastPriceInsights } from '../utils/flightSimulator';
 import { fetchRouteWeather, predictDelayRisk } from '../utils/weatherRisk';
+import { generateWeeklyFareForecast } from '../utils/pricePredictor';
 
 const PAGE_SIZE = 50;
 
@@ -23,7 +25,7 @@ const WeatherGlyph = ({ iconName, size = 16, className = '', style = {} }) => {
   }
 };
 
-const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
+const FlightResults = ({ searchData, onBack, onSelectFlight, onDateChange }) => {
   const [flights, setFlights] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -117,6 +119,34 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
       return risk.level === 'Low';
     }).length;
   }, [flights, routeWeather.originWeather, routeWeather.destWeather]);
+
+  // Lowest available baseline fare across loaded flights
+  const lowestCurrentPrice = useMemo(() => {
+    if (!flights || flights.length === 0) return 0;
+    let min = Infinity;
+    flights.forEach(f => {
+      const p = f.classes?.[0]?.price || f.price || 0;
+      if (p > 0 && p < min) min = p;
+    });
+    return min === Infinity ? 0 : min;
+  }, [flights]);
+
+  const searchDate = searchData?.date;
+  const searchFrom = searchData?.from;
+  const searchTo = searchData?.to;
+
+  // 7-day smart fare forecast
+  const fareForecast = useMemo(() => {
+    if (!searchDate || lowestCurrentPrice === 0) return null;
+    const insights = flights.priceInsights || getLastPriceInsights();
+    return generateWeeklyFareForecast(
+      searchDate,
+      lowestCurrentPrice,
+      searchFrom,
+      searchTo,
+      insights
+    );
+  }, [searchDate, lowestCurrentPrice, searchFrom, searchTo, flights]);
 
   const hasActiveFilters = filterStops !== 'all' || filterAirlines.length > 0 || filterTime !== 'all' || filterLowRiskOnly;
 
@@ -428,6 +458,13 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                 </div>
               </div>
             )}
+
+            {/* Smart Best-Day Fare Predictor Strip */}
+            <FarePredictorStrip
+              forecast={fareForecast}
+              onChangeDate={onDateChange}
+              isLoading={isLoading}
+            />
 
             {/* Sorting Toolbar */}
             <div style={{

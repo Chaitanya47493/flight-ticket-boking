@@ -910,38 +910,120 @@
 .boarding-pass-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(5, 10, 20, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1.25rem;
+  align-items: flex-start;
+  z-index: 999999 !important;
+  padding: 2.5rem 1rem 3.5rem 1rem;
   overflow-y: auto;
 }
 
 .boarding-pass-modal-container {
-  max-width: 860px;
+  max-width: 900px;
   width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
 }
 
+/* Modal Top Action Bar */
 .modal-header-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.modal-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.modal-header-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-header-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.modal-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.modal-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-print-prominent {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.55rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  transition: all var(--transition-fast);
+}
+
+.btn-print-prominent:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45);
+}
+
+.btn-print-prominent:active {
+  transform: translateY(0);
 }
 
 .modal-close-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-md);
-  background: var(--surface-color);
+  background: var(--surface-subtle);
   border: 1px solid var(--surface-border);
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
@@ -951,23 +1033,24 @@
   color: var(--danger-color);
 }
 
+/* Passenger Selector Bar */
 .passenger-tabs-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
   overflow-x: auto;
-  padding-bottom: 0.35rem;
+  padding: 0.25rem 0;
 }
 
 .passenger-tab-btn {
   background: var(--surface-color);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
-  padding: 0.35rem 0.75rem;
+  padding: 0.4rem 0.875rem;
   color: var(--text-secondary);
   font-size: 0.8125rem;
   white-space: nowrap;
+  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
@@ -975,72 +1058,114 @@
   background: var(--accent-subtle);
   color: var(--accent-color);
   border-color: var(--accent-color);
-  font-weight: 600;
+  font-weight: 700;
 }
 
+/* Boarding Pass Ticket Container */
 .boarding-pass-card {
   display: flex;
-  background: #FFFFFF;
-  color: #0F172A;
+  background: #ffffff;
+  color: #0f172a;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid #E2E8F0;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px #e2e8f0;
+  border: 1px solid #e2e8f0;
   position: relative;
 }
 
+/* ── Main Section ── */
 .pass-main {
   flex: 1;
-  padding: 1.75rem;
-  border-right: 2px dashed #CBD5E1;
+  padding: 1.75rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background: #ffffff;
 }
 
 .pass-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #E2E8F0;
-  padding-bottom: 0.875rem;
-  margin-bottom: 1.25rem;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 1rem;
 }
 
 .pass-airline {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.875rem;
+}
+
+.pass-airline-logo {
+  height: 36px;
+  max-width: 110px;
+  object-fit: contain;
+}
+
+.pass-default-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #0284c7;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .airline-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #0F172A;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
 }
 
 .airline-sub {
   font-size: 0.75rem;
-  color: #64748B;
-  font-weight: 500;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 2px;
+  display: block;
+}
+
+.pass-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .pass-cabin-badge {
-  background: #0F172A;
-  color: #FFFFFF;
-  padding: 0.25rem 0.75rem;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.35rem 0.875rem;
   border-radius: var(--radius-sm);
   font-size: 0.6875rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 1px;
 }
 
+.pass-type-badge {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Route Strip */
 .pass-route-strip {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-md);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
+  padding: 1.125rem 1.5rem;
 }
 
 .route-point {
@@ -1048,25 +1173,37 @@
   flex-direction: column;
 }
 
+.route-point.destination {
+  text-align: right;
+  align-items: flex-end;
+}
+
 .route-iata {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #0F172A;
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: #0f172a;
   line-height: 1;
   font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.5px;
 }
 
 .route-city {
-  font-size: 0.8125rem;
-  color: #475569;
-  font-weight: 500;
-  margin-top: 3px;
+  font-size: 0.875rem;
+  color: #334155;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .route-time {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--accent-color);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0284c7;
+  margin-top: 2px;
+}
+
+.route-terminal {
+  font-size: 0.6875rem;
+  color: #64748b;
   margin-top: 2px;
 }
 
@@ -1078,18 +1215,374 @@
 
 .route-duration {
   font-size: 0.6875rem;
-  color: #64748B;
-  font-weight: 600;
-  margin-bottom: 3px;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
-.route-line {
+.route-line-wrap {
   display: flex;
   align-items: center;
-  color: var(--accent-color);
   position: relative;
-  width: 90px;
+  width: 140px;
   justify-content: center;
+}
+
+.route-dashed-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-top: 2px dashed #94a3b8;
+  z-index: 1;
+}
+
+.route-plane {
+  color: #0284c7;
+  background: #f8fafc;
+  padding: 0 4px;
+  position: relative;
+  z-index: 2;
+}
+
+.route-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0284c7;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.route-dot.start {
+  left: 0;
+}
+
+.route-dot.end {
+  right: 0;
+}
+
+.route-direct {
+  font-size: 0.6875rem;
+  color: #15803d;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+/* ── Structured Details Grid ── */
+.pass-details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 1.125rem 1.25rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.passenger-col {
+  grid-column: span 2;
+}
+
+.detail-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.detail-value {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.detail-value.name-value {
+  color: #0f172a;
+  letter-spacing: 0.25px;
+}
+
+.detail-value.time-value {
+  color: #4338ca;
+}
+
+.detail-value.gate-value {
+  color: #0284c7;
+  font-size: 1.05rem;
+}
+
+.detail-item.seat-highlight-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+}
+
+.detail-item.seat-highlight-box .detail-label {
+  color: #1e40af;
+}
+
+.detail-item.seat-highlight-box .detail-value {
+  color: #1d4ed8;
+  font-size: 1.15rem;
+}
+
+.detail-value.pnr-text {
+  font-family: monospace;
+  letter-spacing: 1.5px;
+  color: #0f172a;
+}
+
+/* ── Barcode & Security Row ── */
+.pass-barcode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pass-barcode-col {
+  flex: 1;
+}
+
+.barcode-stripes {
+  height: 44px;
+  width: 100%;
+  max-width: 360px;
+  background: repeating-linear-gradient(
+    90deg,
+    #0f172a 0px,
+    #0f172a 2px,
+    transparent 2px,
+    transparent 4px,
+    #0f172a 4px,
+    #0f172a 7px,
+    transparent 7px,
+    transparent 9px,
+    #0f172a 9px,
+    #0f172a 11px,
+    transparent 11px,
+    transparent 13px,
+    #0f172a 13px,
+    #0f172a 16px,
+    transparent 16px,
+    transparent 18px,
+    #0f172a 18px,
+    #0f172a 22px,
+    transparent 22px,
+    transparent 25px
+  );
+  border-radius: 2px;
+}
+
+.barcode-numbers {
+  display: block;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  color: #64748b;
+  margin-top: 5px;
+  word-break: break-all;
+}
+
+.pass-qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+}
+
+.qr-caption {
+  font-size: 0.58rem;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ── Tear-off Stub (Right Side) ── */
+.pass-stub {
+  width: 250px;
+  min-width: 240px;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border-left: 2px dashed #cbd5e1;
+  padding: 1.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+.stub-notch {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background: rgba(5, 10, 20, 0.85);
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.stub-notch.notch-top {
+  top: -11px;
+  left: -11px;
+}
+
+.stub-notch.notch-bottom {
+  bottom: -11px;
+  left: -11px;
+}
+
+.stub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.stub-brand {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.stub-class {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.stub-route-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.875rem;
+}
+
+.stub-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+}
+
+.stub-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stub-label {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.stub-val {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stub-seat-highlight {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  text-align: center;
+  margin-top: 0.25rem;
+}
+
+.stub-seat-val {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #1d4ed8;
+  line-height: 1.1;
+}
+
+.stub-footer {
+  text-align: center;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+}
+
+.stub-pnr {
+  font-size: 0.65rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 1px;
+  display: block;
+  margin-top: 4px;
+}
+
+.stub-receipt-tag {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: block;
+  margin-top: 2px;
+}
+
+/* Modal Bottom Bar */
+.modal-bottom-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1.25rem;
+  gap: 1rem;
+}
+
+.pass-footer-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 /* ── God's Eye / AeroRadar Airspace Radar HUD ────────────────────── */
@@ -1210,7 +1703,30 @@
   }
   .pass-main {
     border-right: none;
-    border-bottom: 2px dashed #CBD5E1;
+    border-bottom: 2px dashed #cbd5e1;
+    padding: 1.25rem;
+  }
+  .pass-stub {
+    width: 100%;
+    border-left: none;
+    border-top: 2px dashed #cbd5e1;
+    padding: 1.25rem;
+  }
+  .pass-details-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .detail-item.passenger-col {
+    grid-column: span 2;
+  }
+  .stub-notch.notch-top {
+    left: -11px;
+    top: -11px;
+  }
+  .stub-notch.notch-bottom {
+    right: -11px;
+    left: auto;
+    top: -11px;
+    bottom: auto;
   }
 }
 
@@ -2979,8 +3495,86 @@
   }
 }
 
-/* Clean printing styles for Boarding Pass Weather Strip */
+/* ── Clean Boarding Pass Print Styles ── */
 @media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .header,
+  .stepper,
+  .footer,
+  .no-print,
+  button,
+  .passenger-tabs-bar,
+  .modal-bottom-actions,
+  .modal-header-actions {
+    display: none !important;
+  }
+
+  .boarding-pass-modal-overlay {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .boarding-pass-modal-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .boarding-pass-card {
+    display: flex !important;
+    flex-direction: row !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+    max-width: 950px !important;
+    margin: 0 auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pass-main {
+    flex: 1 !important;
+    border-right: 2px dashed #000000 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 1.25rem !important;
+  }
+
+  .pass-stub {
+    width: 240px !important;
+    background: #f8fafc !important;
+    border-left: 2px dashed #000000 !important;
+    color: #000000 !important;
+    padding: 1.25rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .stub-notch {
+    display: none !important;
+  }
+
   .pass-weather-status-strip {
     background: #ffffff !important;
     border: 1px solid #94a3b8 !important;
@@ -2993,5 +3587,297 @@
   .pass-risk-pill {
     background: #ffffff !important;
     border: 1px solid #000000 !important;
+  }
+}
+
+/* ==============================================================================
+   SMART BEST-DAY FARE PREDICTOR (7-Day Calendar Strip & Verdict HUD)
+   ============================================================================== */
+.fare-predictor-card {
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.25rem;
+  background: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+}
+
+.fare-predictor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.fare-predictor-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 260px;
+}
+
+.fare-predictor-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.15);
+}
+
+.fare-predictor-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.fare-predictor-recommendation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.fare-shift-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.fare-shift-cta-btn:hover {
+  background: rgba(34, 197, 94, 0.28);
+  border-color: rgba(34, 197, 94, 0.6);
+  transform: translateY(-1px);
+}
+
+.fare-verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fare-days-strip-container {
+  width: 100%;
+  overflow-x: auto;
+  padding: 8px 4px 8px 4px;
+  margin: -4px -4px 0 -4px;
+  scrollbar-width: thin;
+}
+
+.fare-days-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(80px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.fare-day-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.35rem 0.65rem 0.35rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  border: 1.5px solid var(--surface-border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  color: var(--text-primary);
+  min-height: 124px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.fare-day-pill:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  background: rgba(56, 189, 248, 0.08);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.fare-day-pill.is-selected {
+  border: 1.5px solid var(--accent-color);
+  background: var(--accent-subtle);
+  cursor: default;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.2);
+}
+
+.fare-day-pill.is-best-fare:not(.is-selected) {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.fare-day-tag-slot {
+  height: 18px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.fare-pill-tag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.fare-pill-tag.best {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.fare-pill-tag.selected {
+  background: var(--accent-color);
+  color: #fff;
+  border: 1px solid var(--accent-color);
+}
+
+.fare-pill-tag.spacer {
+  visibility: hidden;
+}
+
+.fare-day-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.fare-day-date {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.fare-bar-track {
+  width: 16px;
+  height: 38px;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 9999px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.fare-bar-fill {
+  width: 100%;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.4);
+  transition: height 0.4s ease, background 0.2s ease;
+}
+
+.fare-bar-fill.best {
+  background: #22c55e;
+}
+
+.fare-bar-fill.selected {
+  background: var(--accent-color);
+}
+
+.fare-day-price {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.fare-predictor-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--surface-border);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.fare-predictor-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 240px;
+}
+
+.fare-predictor-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.71rem;
+  white-space: nowrap;
+}
+
+.fare-pulse-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  display: inline-block;
+  animation: radar-ping 2s infinite;
+}
+
+@media (max-width: 768px) {
+  .fare-days-strip {
+    grid-template-columns: repeat(7, 85px);
+  }
+  .fare-predictor-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .fare-predictor-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

@@ -1,9 +1,44 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, Printer, Plane, QrCode, ShieldCheck, AlertCircle, RotateCcw, 
   Wind, Eye, ShieldAlert, CheckCircle2, AlertTriangle, Activity 
 } from 'lucide-react';
 import { fetchRouteWeather, predictDelayRisk } from '../utils/weatherRisk';
+
+const computeBoardingTime = (depTimeStr) => {
+  if (!depTimeStr) return '45 mins before';
+  try {
+    const match = depTimeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return `${depTimeStr} (T-45m)`;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3] ? match[3].toUpperCase() : null;
+
+    let totalMinutes = hours * 60 + minutes;
+    if (ampm === 'PM' && hours < 12) totalMinutes += 12 * 60;
+    if (ampm === 'AM' && hours === 12) totalMinutes = minutes;
+
+    let boardingMinutes = totalMinutes - 45;
+    if (boardingMinutes < 0) boardingMinutes += 24 * 60;
+
+    const bHours = Math.floor(boardingMinutes / 60);
+    const bMins = boardingMinutes % 60;
+    const bMinsStr = bMins < 10 ? `0${bMins}` : `${bMins}`;
+
+    if (ampm) {
+      const bAmpm = bHours >= 12 ? 'PM' : 'AM';
+      let bHours12 = bHours % 12;
+      if (bHours12 === 0) bHours12 = 12;
+      return `${bHours12}:${bMinsStr} ${bAmpm} (T-45m)`;
+    } else {
+      const bHours24 = bHours < 10 ? `0${bHours}` : `${bHours}`;
+      return `${bHours24}:${bMinsStr} (T-45m)`;
+    }
+  } catch {
+    return `${depTimeStr} (T-45m)`;
+  }
+};
 
 const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
   const [activePassengerIndex, setActivePassengerIndex] = useState(0);
@@ -41,10 +76,46 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
   const legDestCity = isReturnLeg ? (searchData?.from || flight?.origin) : (searchData?.to || flight?.destination);
   const legDate = isReturnLeg ? (searchData?.returnDate || searchData?.date || 'Confirmed') : (searchData?.date || 'Confirmed');
 
-  // Seat for active leg and passenger
-  const assignedSeat = isReturnLeg
-    ? (selectedSeats?.return?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}C`)
-    : (selectedSeats?.outbound?.[activePassengerIndex]?.id || selectedSeats?.[activePassengerIndex]?.id || `${activePassengerIndex + 4}A`);
+  // Robust seat resolution
+  const getAssignedSeat = (index, isReturn) => {
+    try {
+      if (isReturn) {
+        const retSeats = selectedSeats?.return;
+        if (!retSeats) return `${index + 4}C`;
+        if (Array.isArray(retSeats)) {
+          return retSeats[index]?.id || retSeats[index] || `${index + 4}C`;
+        }
+        if (typeof retSeats === 'object') {
+          const vals = Object.values(retSeats);
+          const s = vals[index] || retSeats[index];
+          return s?.id || (typeof s === 'string' ? s : `${index + 4}C`);
+        }
+        return `${index + 4}C`;
+      } else {
+        const outSeats = selectedSeats?.outbound || selectedSeats;
+        if (!outSeats) return `${index + 4}A`;
+        if (Array.isArray(outSeats)) {
+          return outSeats[index]?.id || outSeats[index] || `${index + 4}A`;
+        }
+        if (typeof outSeats === 'object') {
+          const vals = Object.values(outSeats);
+          const s = vals[index] || outSeats[index];
+          return s?.id || (typeof s === 'string' ? s : `${index + 4}A`);
+        }
+        return `${index + 4}A`;
+      }
+    } catch {
+      return `${index + 4}A`;
+    }
+  };
+
+  const assignedSeat = getAssignedSeat(activePassengerIndex, isReturnLeg);
+  const gateNumber = `A${(parseInt(flight?.flightNumber?.replace(/\D/g, '') || '12', 10) % 20) + 1}`;
+  const boardingTime = computeBoardingTime(flight?.departureTime);
+
+  const passengerTitle = activePassenger.title ? `${activePassenger.title.toUpperCase()}. ` : '';
+  const passengerFullName = `${passengerTitle}${activePassenger.firstName?.toUpperCase() || 'VALUED'} ${activePassenger.lastName?.toUpperCase() || 'PASSENGER'}`.trim();
+  const stubName = `${activePassenger.firstName || 'Valued'} ${activePassenger.lastName || 'Passenger'}`.trim();
 
   useEffect(() => {
     let isMounted = true;
@@ -62,28 +133,58 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
     ? predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, flight?.stops || 0)
     : { level: 'Low', score: 12, reason: 'Normal operations with calm airspace' };
 
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !bookingData) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  return (
+  const modalContent = (
     <div className="boarding-pass-modal-overlay animate-fade-in" onClick={onClose}>
       <div className="boarding-pass-modal-container" onClick={e => e.stopPropagation()}>
-        {/* Header Actions */}
+        
+        {/* Top Header Action Bar with Prominent Print Option */}
         <div className="modal-header-actions no-print">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Plane size={24} className="logo-icon" />
-            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Official Digital Boarding Pass</h2>
+          <div className="modal-header-brand">
+            <div className="modal-header-icon-wrap">
+              <Plane size={20} />
+            </div>
+            <div>
+              <h2 className="modal-header-title">Official Digital Boarding Pass</h2>
+              <div className="modal-header-meta">
+                <span>PNR: <strong>{bookingRef}</strong></span>
+                <span>•</span>
+                <span>{flight?.airline || 'Aero Space'} ({legFlightNumber})</span>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button type="button" className="btn-primary" onClick={handlePrint} style={{ padding: '0.5rem 1.25rem' }}>
-              <Printer size={16} />
-              Print / Save as PDF
+          <div className="modal-header-btns">
+            <button
+              type="button"
+              className="btn-print-prominent"
+              onClick={handlePrint}
+              title="Print or Save as PDF"
+            >
+              <Printer size={18} />
+              <span>Print / Save as PDF</span>
             </button>
-            <button type="button" className="modal-close-btn" onClick={onClose}>
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={onClose}
+              aria-label="Close Boarding Pass"
+            >
               <X size={20} />
             </button>
           </div>
@@ -97,7 +198,6 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
             color: 'var(--danger-color)',
             borderRadius: 'var(--radius-md)',
             padding: '0.625rem 1rem',
-            marginBottom: '1rem',
             fontSize: '0.8125rem',
             textAlign: 'center',
             fontWeight: 600,
@@ -113,7 +213,7 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
         {/* Round Trip Leg Switcher Tabs */}
         {isRoundTrip && (
-          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem', justifyContent: 'center' }}>
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
             <button
               type="button"
               onClick={() => setActiveLeg('outbound')}
@@ -160,12 +260,9 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
         {/* Passenger Tabs if multi-passenger */}
         {pList.length > 1 && (
           <div className="passenger-tabs-bar no-print">
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Passenger:</span>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Passenger:</span>
             {pList.map((p, idx) => {
-              const currentLegSeat = isReturnLeg
-                ? (selectedSeats?.return?.[idx]?.id || `${idx + 4}C`)
-                : (selectedSeats?.outbound?.[idx]?.id || selectedSeats?.[idx]?.id || `${idx + 4}A`);
-
+              const currentLegSeat = getAssignedSeat(idx, isReturnLeg);
               return (
                 <button
                   type="button"
@@ -212,48 +309,66 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
                 {flight?.airlineLogo ? (
                   <img src={flight.airlineLogo} alt={flight.airline} className="pass-airline-logo" />
                 ) : (
-                  <Plane size={28} className="logo-icon" />
+                  <div className="pass-default-logo">
+                    <Plane size={22} />
+                  </div>
                 )}
                 <div>
                   <div className="airline-title">{flight?.airline || 'Aero Space Airline'}</div>
-                  <div className="airline-sub">Flight {legFlightNumber}</div>
+                  <div className="airline-sub">Flight {legFlightNumber} · Operated by {flight?.airline || 'Aero Space'}</div>
                 </div>
               </div>
 
-              <div className="pass-cabin-badge">
-                {selectedClass?.name?.toUpperCase() || 'ECONOMY'}
+              <div className="pass-header-badges">
+                <span className="pass-cabin-badge">
+                  {selectedClass?.name?.toUpperCase() || 'ECONOMY'}
+                </span>
+                <span className="pass-type-badge">
+                  BOARDING PASS
+                </span>
               </div>
             </div>
 
+            {/* Route & Times Strip */}
             <div className="pass-route-strip">
               <div className="route-point">
                 <span className="route-iata">{legOriginIata}</span>
                 <span className="route-city">{legOriginCity}</span>
                 <span className="route-time">{flight?.departureTime || '10:00 AM'}</span>
+                <span className="route-terminal">Departure</span>
               </div>
 
               <div className="route-flight-icon">
                 <span className="route-duration">{flight?.duration || '2h 15m'}</span>
-                <div className="route-line">
-                  <Plane size={16} />
+                <div className="route-line-wrap">
+                  <span className="route-dot start" />
+                  <div className="route-dashed-line" />
+                  <Plane size={16} className="route-plane" />
+                  <span className="route-dot end" />
                 </div>
                 <span className="route-direct">Direct Flight</span>
               </div>
 
-              <div className="route-point" style={{ textAlign: 'right' }}>
+              <div className="route-point destination">
                 <span className="route-iata">{legDestIata}</span>
                 <span className="route-city">{legDestCity}</span>
                 <span className="route-time">{flight?.arrivalTime || '12:15 PM'}</span>
+                <span className="route-terminal">Arrival</span>
               </div>
             </div>
 
+            {/* Structured Passenger & Flight Details Grid */}
             <div className="pass-details-grid">
-              <div className="detail-item">
+              <div className="detail-item passenger-col">
                 <span className="detail-label">PASSENGER NAME</span>
-                <strong className="detail-value">
-                  {activePassenger.title ? `${activePassenger.title.toUpperCase()}. ` : ''}
-                  {activePassenger.firstName?.toUpperCase()} {activePassenger.lastName?.toUpperCase()}
+                <strong className="detail-value name-value">
+                  {passengerFullName}
                 </strong>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">FLIGHT</span>
+                <strong className="detail-value">{legFlightNumber}</strong>
               </div>
 
               <div className="detail-item">
@@ -263,13 +378,13 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
               <div className="detail-item">
                 <span className="detail-label">GATE</span>
-                <strong className="detail-value">A{parseInt(flight?.flightNumber?.replace(/\D/g, '') || '12', 10) % 20 + 1}</strong>
+                <strong className="detail-value gate-value">{gateNumber}</strong>
               </div>
 
               <div className="detail-item">
                 <span className="detail-label">BOARDING TIME</span>
-                <strong className="detail-value" style={{ color: '#4338ca' }}>
-                  {flight?.departureTime ? `${flight.departureTime} (T-45m)` : '45 mins before'}
+                <strong className="detail-value time-value">
+                  {boardingTime}
                 </strong>
               </div>
 
@@ -332,72 +447,102 @@ const BoardingPassModal = ({ isOpen, onClose, bookingData, bookingId }) => {
 
             {/* Barcode & Security stamp */}
             <div className="pass-barcode-row">
-              <div className="pass-barcode">
-                {/* Synthetic realistic barcode stripes */}
+              <div className="pass-barcode-col">
                 <div className="barcode-stripes" />
-                <span className="barcode-numbers">M1{activePassenger.lastName?.toUpperCase()}/{activePassenger.firstName?.toUpperCase()} E{bookingRef} {legOriginIata}{legDestIata}</span>
+                <span className="barcode-numbers">
+                  M1{activePassenger.lastName?.toUpperCase() || 'PASSENGER'}/{activePassenger.firstName?.toUpperCase() || 'VALUED'} E{bookingRef} {legOriginIata}{legDestIata} {legFlightNumber} {assignedSeat}
+                </span>
               </div>
 
               <div className="pass-qr-box">
-                <div className="mock-qr">
-                  <QrCode size={44} style={{ color: '#1e293b' }} />
-                </div>
-                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>SECURE GATE PASS</span>
+                <QrCode size={46} style={{ color: '#0f172a' }} />
+                <span className="qr-caption">SECURE GATE PASS</span>
               </div>
             </div>
           </div>
 
-          {/* Tear-off Stub */}
+          {/* Tear-off Stub (Right Side) */}
           <div className="pass-stub">
             <div className="stub-notch notch-top" />
             <div className="stub-notch notch-bottom" />
 
-            <div className="stub-header">
-              <span className="stub-brand">{flight?.airline || 'Aero Space'}</span>
-              <span className="stub-class">{selectedClass?.name || 'Economy'}</span>
-            </div>
-
-            <div className="stub-content">
-              <div className="stub-row">
-                <span className="stub-label">NAME</span>
-                <strong className="stub-val">{activePassenger.firstName?.slice(0, 10)} {activePassenger.lastName?.slice(0, 10)}</strong>
+            <div>
+              <div className="stub-header">
+                <span className="stub-brand">{flight?.airline || 'Aero Space'}</span>
+                <span className="stub-class">{selectedClass?.name?.toUpperCase() || 'ECONOMY'}</span>
               </div>
 
-              <div className="stub-row">
-                <span className="stub-label">FLIGHT</span>
-                <strong className="stub-val">{legFlightNumber}</strong>
+              <div className="stub-route-pill">
+                <span>{legOriginIata}</span>
+                <Plane size={13} style={{ color: '#0284c7' }} />
+                <span>{legDestIata}</span>
               </div>
 
-              <div className="stub-row">
-                <span className="stub-label">DATE</span>
-                <strong className="stub-val">{legDate}</strong>
-              </div>
+              <div className="stub-content">
+                <div className="stub-row">
+                  <span className="stub-label">PASSENGER</span>
+                  <strong className="stub-val">{stubName}</strong>
+                </div>
 
-              <div className="stub-row">
-                <span className="stub-label">FROM → TO</span>
-                <strong className="stub-val">{legOriginIata} → {legDestIata}</strong>
-              </div>
+                <div className="stub-row">
+                  <span className="stub-label">FLIGHT</span>
+                  <strong className="stub-val">{legFlightNumber}</strong>
+                </div>
 
-              <div className="stub-seat-highlight">
-                <span className="stub-label">SEAT</span>
-                <div className="stub-seat-val">{assignedSeat}</div>
+                <div className="stub-row">
+                  <span className="stub-label">DATE</span>
+                  <strong className="stub-val">{legDate}</strong>
+                </div>
+
+                <div className="stub-row">
+                  <span className="stub-label">TIME</span>
+                  <strong className="stub-val">{flight?.departureTime || '10:00 AM'}</strong>
+                </div>
+
+                <div className="stub-row">
+                  <span className="stub-label">GATE</span>
+                  <strong className="stub-val">{gateNumber}</strong>
+                </div>
+
+                <div className="stub-seat-highlight">
+                  <span className="stub-label">SEAT</span>
+                  <div className="stub-seat-val">{assignedSeat}</div>
+                </div>
               </div>
             </div>
 
             <div className="stub-footer">
-              <QrCode size={36} style={{ color: '#334155', margin: '0 auto' }} />
-              <span style={{ fontSize: '0.6rem', color: '#64748b', display: 'block', textAlign: 'center', marginTop: '4px' }}>{bookingRef}</span>
+              <QrCode size={40} style={{ color: '#0f172a', margin: '0 auto', display: 'block' }} />
+              <span className="stub-pnr">PNR: {bookingRef}</span>
+              <span className="stub-receipt-tag">PASSENGER RECEIPT</span>
             </div>
           </div>
         </div>
 
-        <div className="pass-footer-tip no-print">
-          <ShieldCheck size={16} style={{ color: '#10b981' }} />
-          <span>Present this digital boarding pass or printed copy at security and boarding gate. Valid with Govt. Photo ID.</span>
+        {/* Modal Bottom Action Bar */}
+        <div className="modal-bottom-actions no-print">
+          <div className="pass-footer-tip">
+            <ShieldCheck size={18} style={{ color: '#10b981', flexShrink: 0 }} />
+            <span>Present this digital boarding pass or printed copy at security and boarding gate. Valid with Govt. Photo ID.</span>
+          </div>
+          <button
+            type="button"
+            className="btn-print-prominent"
+            onClick={handlePrint}
+            style={{ padding: '0.45rem 1rem', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+          >
+            <Printer size={15} />
+            <span>Print Pass</span>
+          </button>
         </div>
+
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default BoardingPassModal;

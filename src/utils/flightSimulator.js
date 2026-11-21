@@ -279,6 +279,10 @@ const getSmartLocalFallback = (searchData, origin, dest) => {
   });
 };
 
+// Cached price insights from the latest live SerpApi response
+export let lastPriceInsights = null;
+export const getLastPriceInsights = () => lastPriceInsights;
+
 export const fetchFlights = async (searchData) => {
   const origin = getIataCode(searchData.from);
   const dest = getIataCode(searchData.to);
@@ -303,10 +307,13 @@ export const fetchFlights = async (searchData) => {
         const flightsData = [...bestFlights, ...otherFlights];
           
           if (flightsData.length > 0) {
+            // Capture and preserve live price insights (price_level, lowest_price, typical_price_range)
+            lastPriceInsights = json.price_insights || null;
+
             if (import.meta.env.DEV) {
-              console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`);
+              console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`, lastPriceInsights ? '(with price insights)' : '');
             }
-            return flightsData.map((result, index) => {
+            const mappedFlights = flightsData.map((result, index) => {
               const firstFlight = result.flights[0];
               const lastFlight = result.flights[result.flights.length - 1];
               
@@ -354,6 +361,10 @@ export const fetchFlights = async (searchData) => {
                 classes: flightClasses
               };
             });
+
+            // Attach price insights directly onto the array for transparent access
+            mappedFlights.priceInsights = lastPriceInsights;
+            return mappedFlights;
           }
         }
       }
@@ -362,8 +373,11 @@ export const fetchFlights = async (searchData) => {
     }
 
   // Fallback to Smart Verified Schedule
+  lastPriceInsights = null;
   if (import.meta.env.DEV) {
     console.log(`[Schedule Fallback] Using smart schedule fallback for ${origin} → ${dest}`);
   }
-  return getSmartLocalFallback(searchData, origin, dest);
+  const fallbackList = getSmartLocalFallback(searchData, origin, dest);
+  fallbackList.priceInsights = null;
+  return fallbackList;
 };

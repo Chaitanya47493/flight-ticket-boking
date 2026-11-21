@@ -97,6 +97,39 @@ function App() {
     setCurrentStep(2);
   };
 
+  const handleDateChange = (newDateStr) => {
+    if (!newDateStr || !searchData) return;
+
+    let updatedReturnDate = searchData.returnDate;
+
+    // If round-trip and new departure date meets or exceeds return date, bump return date forward
+    if (searchData.tripType === 'roundtrip' && searchData.returnDate) {
+      const [nY, nM, nD] = newDateStr.split('-').map(Number);
+      const [rY, rM, rD] = searchData.returnDate.split('-').map(Number);
+      const newDep = new Date(nY, nM - 1, nD);
+      const curRet = new Date(rY, rM - 1, rD);
+
+      if (newDep >= curRet) {
+        // Calculate original trip span in days, minimum 2 days
+        const [oY, oM, oD] = searchData.date.split('-').map(Number);
+        const origDep = new Date(oY, oM - 1, oD);
+        const originalSpanDays = Math.max(2, Math.round((curRet - origDep) / (1000 * 60 * 60 * 24)));
+        const bumpedRet = new Date(newDep);
+        bumpedRet.setDate(bumpedRet.getDate() + originalSpanDays);
+        const bY = bumpedRet.getFullYear();
+        const bM = String(bumpedRet.getMonth() + 1).padStart(2, '0');
+        const bD = String(bumpedRet.getDate()).padStart(2, '0');
+        updatedReturnDate = `${bY}-${bM}-${bD}`;
+      }
+    }
+
+    setSearchData(prev => ({
+      ...prev,
+      date: newDateStr,
+      ...(updatedReturnDate ? { returnDate: updatedReturnDate } : {})
+    }));
+  };
+
   const handleSelectFlight = (flight, selectedClass) => {
     if (!user) {
       // Allow guests to browse, but prompt login before Step 3 Passenger Details
@@ -575,6 +608,7 @@ function App() {
                 searchData={searchData}
                 onBack={() => setCurrentStep(1)}
                 onSelectFlight={handleSelectFlight}
+                onDateChange={handleDateChange}
                 user={user}
               />
             )}
