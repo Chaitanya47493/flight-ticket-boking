@@ -41,7 +41,7 @@ const getIataCode = (input) => {
 };
 
 // Time extraction helpers
-export const parseAirportTime = (timeStr, fallbackHour = 10) => {
+const parseAirportTime = (timeStr, fallbackHour = 10) => {
   if (!timeStr) return `${fallbackHour.toString().padStart(2, '0')}:00 AM`;
   const timePart = timeStr.includes(' ') ? timeStr.split(' ')[1] : timeStr;
   const [hStr, mStr] = timePart.split(':');
@@ -53,7 +53,7 @@ export const parseAirportTime = (timeStr, fallbackHour = 10) => {
   return `${h12.toString().padStart(2, '0')}:${m} ${ampm}`;
 };
 
-export const getMinutesFromTimeStr = (timeStr) => {
+const getMinutesFromTimeStr = (timeStr) => {
   if (!timeStr) return 600; // default 10:00 AM (600 mins)
   const timePart = timeStr.includes(' ') ? timeStr.split(' ')[1] : timeStr;
   const [hStr, mStr] = timePart.split(':');
@@ -62,7 +62,7 @@ export const getMinutesFromTimeStr = (timeStr) => {
   return h * 60 + m;
 };
 
-export const getAvailableClassesForFlight = (airlineName, origin, dest, basePrice = 5000) => {
+const getAvailableClassesForFlight = (airlineName, origin, dest, basePrice = 5000) => {
   const normAirline = (airlineName || '').toLowerCase();
   const normOrigin = (origin || '').toUpperCase();
   const normDest = (dest || '').toUpperCase();
@@ -280,41 +280,32 @@ const getSmartLocalFallback = (searchData, origin, dest) => {
 };
 
 export const fetchFlights = async (searchData) => {
-  const serpapiKey = import.meta.env.VITE_SERPAPI_KEY;
   const origin = getIataCode(searchData.from);
   const dest = getIataCode(searchData.to);
 
-  // --- SERPAPI (Google Flights) REAL-TIME LIVE INTEGRATION ---
-  if (serpapiKey && serpapiKey !== 'your_serpapi_key_here') {
-    try {
-      console.log(`[Google Flights] Querying live flights: ${origin} → ${dest} on ${searchData.date}`);
-      const isProd = import.meta.env.PROD;
-      const isRoundTrip = searchData.tripType === 'roundtrip' && searchData.returnDate;
-      const typeParam = isRoundTrip ? `type=1&return_date=${searchData.returnDate}` : 'type=2';
-      const passengersCount = searchData.passengers || 1;
-      const adultsParam = `&adults=${passengersCount}`;
-      
-      let url;
-      if (isProd) {
-        url = `/api/flights?departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&${typeParam}${adultsParam}&currency=INR`;
-      } else {
-        url = `/serpapi/search.json?engine=google_flights&departure_id=${origin}&arrival_id=${dest}&outbound_date=${searchData.date}&${typeParam}${adultsParam}&currency=INR&api_key=${serpapiKey}`;
-      }
+  // --- SERPAPI (Google Flights) VIA SECURE SERVERLESS BACKEND ---
+  try {
+    const isRoundTrip = searchData.tripType === 'roundtrip' && searchData.returnDate;
+    const typeParam = isRoundTrip ? `type=1&return_date=${encodeURIComponent(searchData.returnDate)}` : 'type=2';
+    const passengersCount = Math.min(Math.max(parseInt(searchData.passengers, 10) || 1, 1), 9);
+    const adultsParam = `&adults=${passengersCount}`;
 
-      const response = await fetch(url);
+    const url = `/api/flights?departure_id=${encodeURIComponent(origin)}&arrival_id=${encodeURIComponent(dest)}&outbound_date=${encodeURIComponent(searchData.date)}&${typeParam}${adultsParam}&currency=INR`;
+
+    const response = await fetch(url);
+    
+    if (response.ok) {
+      const json = await response.json();
       
-      if (response.ok) {
-        const json = await response.json();
-        
-        if (json.error) {
-          console.warn('[SerpApi Notice]:', json.error);
-        } else {
-          const bestFlights = json.best_flights || [];
-          const otherFlights = json.other_flights || [];
-          const flightsData = [...bestFlights, ...otherFlights];
+      if (!json.error) {
+        const bestFlights = json.best_flights || [];
+        const otherFlights = json.other_flights || [];
+        const flightsData = [...bestFlights, ...otherFlights];
           
           if (flightsData.length > 0) {
-            console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`);
+            if (import.meta.env.DEV) {
+              console.log(`[Google Flights] Loaded ${flightsData.length} real-time flights for ${origin} → ${dest}`);
+            }
             return flightsData.map((result, index) => {
               const firstFlight = result.flights[0];
               const lastFlight = result.flights[result.flights.length - 1];
@@ -366,12 +357,13 @@ export const fetchFlights = async (searchData) => {
           }
         }
       }
-    } catch (e) {
-      console.warn('Google Flights API Fetch Error, falling back to smart schedule:', e.message);
+    } catch {
+      // Fallback silently in production
     }
-  }
 
   // Fallback to Smart Verified Schedule
-  console.log(`[Schedule Fallback] Using smart schedule fallback for ${origin} → ${dest}`);
+  if (import.meta.env.DEV) {
+    console.log(`[Schedule Fallback] Using smart schedule fallback for ${origin} → ${dest}`);
+  }
   return getSmartLocalFallback(searchData, origin, dest);
 };

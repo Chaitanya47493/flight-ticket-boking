@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MapPin, Calendar, Users, Search, ArrowLeftRight, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { MapPin, Calendar, Users, Search, ArrowLeftRight, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import iataMap from '../utils/airports.json';
+import { POPULAR_ROUTES } from '../config/routes';
 
 // Build a searchable list from the airports.json
 const airportList = Object.entries(iataMap).map(([city, code]) => ({
@@ -8,36 +9,15 @@ const airportList = Object.entries(iataMap).map(([city, code]) => ({
   code
 }));
 
-const POPULAR_ROUTES = [
-  { from: 'DEL', to: 'BOM', label: 'Delhi ⇄ Mumbai' },
-  { from: 'BLR', to: 'DEL', label: 'Bengaluru ⇄ Delhi' },
-  { from: 'BOM', to: 'GOI', label: 'Mumbai ⇄ Goa' },
-  { from: 'HYD', to: 'MAA', label: 'Hyderabad ⇄ Chennai' },
-  { from: 'BLR', to: 'HYD', label: 'Bengaluru ⇄ Hyderabad' },
-  { from: 'DEL', to: 'CCU', label: 'Delhi ⇄ Kolkata' },
-];
-
 const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
-  // displayValue = what user sees while typing; value (IATA code) = what is stored
-  const [displayValue, setDisplayValue] = useState('');
+  const [internalText, setInternalText] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isSelected, setIsSelected] = useState(false); // true only after picking from dropdown
   const wrapperRef = useRef(null);
 
-  // Sync display when external value changes (e.g. form reset, swap, or popular route click)
-  useEffect(() => {
-    if (!value) {
-      setDisplayValue('');
-      setIsSelected(false);
-    } else {
-      const match = airportList.find(a => a.code.toUpperCase() === value.toUpperCase());
-      if (match) {
-        setDisplayValue(`${match.city} (${match.code})`);
-        setIsSelected(true);
-      }
-    }
-  }, [value]);
+  const airportMatch = value ? airportList.find(a => a.code.toUpperCase() === value.toUpperCase()) : null;
+  const isSelected = Boolean(airportMatch && internalText === null);
+  const displayValue = internalText !== null ? internalText : (airportMatch ? `${airportMatch.city} (${airportMatch.code})` : '');
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -52,9 +32,7 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
 
   const handleInput = (e) => {
     const val = e.target.value;
-    setDisplayValue(val);
-    setIsSelected(false); // user is typing freely — not a valid selection yet
-    // Clear the stored IATA code until they pick from dropdown
+    setInternalText(val);
     onChange({ target: { name, value: '' } });
 
     if (val.length < 1) {
@@ -73,30 +51,28 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
   };
 
   const handleSelect = (airport) => {
-    setDisplayValue(`${airport.city} (${airport.code})`);
-    setIsSelected(true);
-    onChange({ target: { name, value: airport.code } }); // store IATA code
+    setInternalText(null);
+    onChange({ target: { name, value: airport.code } });
     setShowDropdown(false);
     setSuggestions([]);
   };
 
-  // If user leaves without selecting, clear the field
   const handleBlur = () => {
     setTimeout(() => {
-      if (!isSelected) {
-        setDisplayValue('');
+      if (!isSelected && internalText !== null) {
+        setInternalText(null);
         onChange({ target: { name, value: '' } });
         setSuggestions([]);
         setShowDropdown(false);
       }
-    }, 150); // small delay so onMouseDown on suggestion fires first
+    }, 150);
   };
 
   return (
     <div className="input-group" ref={wrapperRef} style={{ position: 'relative' }}>
       <label htmlFor={id}>{label}</label>
       <div className="input-wrapper">
-        <MapPin className="input-icon" size={20} />
+        <MapPin className="input-icon" size={18} />
         <input
           type="text"
           id={id}
@@ -119,13 +95,15 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
       {/* Validation hint with fixed min-height to prevent layout jump */}
       <div style={{ minHeight: '20px', marginTop: '4px' }}>
         {displayValue.length > 0 && !isSelected && (
-          <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'block' }}>
-            ⚠️ Please select a city from the list
+          <span style={{ fontSize: '0.75rem', color: 'var(--danger-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <AlertCircle size={13} />
+            <span>Please select a city from the list</span>
           </span>
         )}
         {isSelected && (
-          <span style={{ fontSize: '0.75rem', color: '#4ade80', display: 'block' }}>
-            ✓ Airport selected
+          <span style={{ fontSize: '0.75rem', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <CheckCircle2 size={13} />
+            <span>Airport confirmed</span>
           </span>
         )}
       </div>
@@ -136,11 +114,11 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
           top: '100%',
           left: 0,
           right: 0,
-          background: '#0f172a',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: '0.75rem',
+          background: 'var(--surface-color)',
+          border: '1px solid var(--surface-border)',
+          borderRadius: 'var(--radius-md)',
           zIndex: 999,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          boxShadow: 'var(--shadow-lg)',
           overflow: 'hidden',
           marginTop: '4px'
         }}>
@@ -149,27 +127,34 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
               key={`${airport.city}-${airport.code}`}
               onMouseDown={() => handleSelect(airport)}
               style={{
-                padding: '0.75rem 1rem',
+                padding: '0.625rem 1rem',
                 cursor: 'pointer',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                borderBottom: '1px solid var(--surface-border)',
+                fontSize: '0.875rem',
+                color: 'var(--text-primary)',
                 transition: 'background 0.15s'
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.2)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--surface-subtle)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
             >
-              <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{airport.city}</span>
+              <span style={{ fontWeight: 500 }}>{airport.city}</span>
               <span style={{
-                background: 'rgba(99,102,241,0.3)',
-                color: '#a5b4fc',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
+                color: 'var(--accent-color)',
+                fontSize: '0.75rem',
                 fontWeight: 700,
-                letterSpacing: '1px'
-              }}>{airport.code}</span>
+                background: 'var(--accent-subtle)',
+                padding: '2px 6px',
+                borderRadius: 'var(--radius-sm)'
+              }}>
+                {airport.code}
+              </span>
             </div>
           ))}
         </div>
@@ -178,23 +163,40 @@ const AirportInput = ({ id, name, label, value, onChange, placeholder }) => {
   );
 };
 
-const SearchForm = ({ onSearch }) => {
-  const [tripType, setTripType] = useState('oneway');
+const SearchForm = ({ onSearch, initialSearchData, externalRoute, hideHeader = false }) => {
+  const [formData, setFormData] = useState({
+    from: initialSearchData?.from || '',
+    to: initialSearchData?.to || '',
+    date: initialSearchData?.date || '',
+    returnDate: initialSearchData?.returnDate || '',
+    passengers: initialSearchData?.passengers || 1,
+  });
+
+  const [tripType, setTripType] = useState(initialSearchData?.tripType || 'oneway');
   const [formError, setFormError] = useState('');
   const [isSwapping, setIsSwapping] = useState(false);
-  const [formData, setFormData] = useState({
-    from: '',
-    to: '',
-    date: '',
-    returnDate: '',
-    passengers: 1
-  });
+  const [prevExternalRoute, setPrevExternalRoute] = useState(externalRoute);
+
+  // Sync external route selection (e.g. from popular corridors on Home)
+  if (externalRoute !== prevExternalRoute) {
+    setPrevExternalRoute(externalRoute);
+    if (externalRoute?.from && externalRoute?.to) {
+      setFormData(prev => ({
+        ...prev,
+        from: externalRoute.from,
+        to: externalRoute.to
+      }));
+      setFormError('');
+    }
+  }
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormError('');
   };
 
   const handleSwap = () => {
+    if (!formData.from && !formData.to) return;
     setIsSwapping(true);
     setFormData(prev => ({
       ...prev,
@@ -216,55 +218,85 @@ const SearchForm = ({ onSearch }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setFormError('');
+
     if (!formData.from || !formData.to) {
-      setFormError('Please select both origin and destination airports from the dropdown.');
+      setFormError('Please select both departure and arrival airports from the dropdown.');
       return;
     }
-    if (formData.from === formData.to) {
-      setFormError('Origin and destination airports cannot be the same.');
+
+    if (formData.from.toUpperCase() === formData.to.toUpperCase()) {
+      setFormError('Departure and arrival airports cannot be the same.');
       return;
     }
-    if (!formData.date || (tripType === 'roundtrip' && !formData.returnDate)) {
-      setFormError('Please fill in all required date fields.');
+
+    if (tripType === 'roundtrip' && !formData.returnDate) {
+      setFormError('Please select a return date for round trip.');
       return;
     }
-    const todayStr = new Date().toLocaleDateString('en-CA');
-    if (formData.date < todayStr) {
-      setFormError('Please select a current or future departure date.');
-      return;
-    }
+
     if (tripType === 'roundtrip' && formData.returnDate < formData.date) {
-      setFormError('Return date cannot be before the departure date.');
+      setFormError('Return date must be on or after the departure date.');
       return;
     }
+
     onSearch({ ...formData, tripType, passengers: parseInt(formData.passengers, 10) || 1 });
   };
 
   return (
     <div className="search-container animate-slide-up">
-      <h1 className="search-title gradient-text">Where will you go next?</h1>
-      <p className="search-subtitle">Discover premium flights to amazing destinations in India.</p>
+      {!hideHeader && (
+        <>
+          <h1 className="search-title">Find and book your flights</h1>
+          <p className="search-subtitle">Simulated domestic flight search across major Indian airports.</p>
+        </>
+      )}
 
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
+      {/* Segmented Trip Type Control */}
+      <div style={{
+        display: 'inline-flex',
+        background: 'var(--surface-subtle)',
+        border: '1px solid var(--surface-border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '3px',
+        marginBottom: '1.25rem'
+      }}>
         <button 
           type="button"
-          className={`btn-secondary ${tripType === 'oneway' ? 'active-tab' : ''}`}
           onClick={() => setTripType('oneway')}
-          style={{ background: tripType === 'oneway' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'oneway' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
+          style={{
+            padding: '0.45rem 1.125rem',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.8125rem',
+            fontWeight: tripType === 'oneway' ? 600 : 500,
+            background: tripType === 'oneway' ? 'var(--surface-color)' : 'transparent',
+            color: tripType === 'oneway' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            boxShadow: tripType === 'oneway' ? 'var(--shadow-sm)' : 'none',
+            border: tripType === 'oneway' ? '1px solid var(--surface-border)' : '1px solid transparent',
+            transition: 'all 0.15s ease'
+          }}
         >
           One Way
         </button>
         <button 
           type="button"
-          className={`btn-secondary ${tripType === 'roundtrip' ? 'active-tab' : ''}`}
           onClick={() => setTripType('roundtrip')}
-          style={{ background: tripType === 'roundtrip' ? 'rgba(99,102,241,0.2)' : 'transparent', border: tripType === 'roundtrip' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)' }}
+          style={{
+            padding: '0.45rem 1.125rem',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.8125rem',
+            fontWeight: tripType === 'roundtrip' ? 600 : 500,
+            background: tripType === 'roundtrip' ? 'var(--surface-color)' : 'transparent',
+            color: tripType === 'roundtrip' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            boxShadow: tripType === 'roundtrip' ? 'var(--shadow-sm)' : 'none',
+            border: tripType === 'roundtrip' ? '1px solid var(--surface-border)' : '1px solid transparent',
+            transition: 'all 0.15s ease'
+          }}
         >
           Round Trip
         </button>
       </div>
 
-      <form className="glass-panel" style={{ padding: '2.25rem 2rem 2.75rem' }} onSubmit={handleSubmit}>
+      <form className="glass-panel" style={{ padding: '1.75rem 1.75rem 2rem' }} onSubmit={handleSubmit}>
         <div className="search-grid" style={{ position: 'relative' }}>
           <div className="airport-row-wrapper">
             <div className="airport-col">
@@ -286,7 +318,7 @@ const SearchForm = ({ onSearch }) => {
                 title="Swap Origin & Destination"
                 aria-label="Swap departure and arrival airports"
               >
-                <ArrowLeftRight size={18} />
+                <ArrowLeftRight size={16} />
               </button>
             </div>
 
@@ -305,7 +337,7 @@ const SearchForm = ({ onSearch }) => {
           <div className="input-group">
             <label htmlFor="date">Departure Date</label>
             <div className="input-wrapper">
-              <Calendar className="input-icon" size={20} />
+              <Calendar className="input-icon" size={18} />
               <input
                 type="date"
                 id="date"
@@ -324,7 +356,7 @@ const SearchForm = ({ onSearch }) => {
             <div className="input-group animate-fade-in">
               <label htmlFor="returnDate">Return Date</label>
               <div className="input-wrapper">
-                <Calendar className="input-icon" size={20} />
+                <Calendar className="input-icon" size={18} />
                 <input
                   type="date"
                   id="returnDate"
@@ -343,7 +375,7 @@ const SearchForm = ({ onSearch }) => {
           <div className="input-group">
             <label htmlFor="passengers">Passengers</label>
             <div className="input-wrapper">
-              <Users className="input-icon" size={20} />
+              <Users className="input-icon" size={18} />
               <input
                 type="number"
                 id="passengers"
@@ -362,7 +394,7 @@ const SearchForm = ({ onSearch }) => {
         {/* Popular Routes Quick-Picks */}
         <div className="popular-routes-section">
           <div className="popular-routes-title">
-            <Sparkles size={14} style={{ color: '#a5b4fc' }} />
+            <Sparkles size={14} style={{ color: 'var(--accent-color)' }} />
             <span>Popular Routes:</span>
           </div>
           <div className="popular-chips">
@@ -384,25 +416,26 @@ const SearchForm = ({ onSearch }) => {
 
         {formError && (
           <div style={{
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            color: '#f87171',
-            padding: '0.75rem 1rem',
-            borderRadius: '10px',
-            fontSize: '0.875rem',
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-color)',
+            color: 'var(--danger-color)',
+            padding: '0.625rem 0.875rem',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '0.8125rem',
             marginTop: '1rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem'
+            gap: '0.4rem'
           }}>
-            ⚠️ {formError}
+            <AlertCircle size={15} />
+            <span>{formError}</span>
           </div>
         )}
 
         <div className="search-btn-container">
           <button type="submit" className="btn-primary">
-            <Search size={20} />
-            Search Flights
+            <Search size={18} />
+            <span>Search Flights</span>
           </button>
         </div>
       </form>

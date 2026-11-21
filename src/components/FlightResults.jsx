@@ -1,9 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import FlightCard from './FlightCard';
-import { ArrowLeft, Loader2, ChevronDown, Filter, ArrowUpDown, Clock, DollarSign, Sunrise, Sunset, X } from 'lucide-react';
+import { 
+  ArrowLeft, Loader2, ChevronDown, Filter, ArrowUpDown, Clock, DollarSign, 
+  Sunrise, Sunset, X, Sun, CloudSun, CloudRain, CloudLightning, CloudFog, 
+  CloudDrizzle, CloudSnow, Wind, Eye, ShieldAlert, CheckCircle2, AlertTriangle, Activity 
+} from 'lucide-react';
 import { fetchFlights } from '../utils/flightSimulator';
+import { fetchRouteWeather, predictDelayRisk } from '../utils/weatherRisk';
 
 const PAGE_SIZE = 50;
+
+const WeatherGlyph = ({ iconName, size = 16, className = '', style = {} }) => {
+  switch (iconName) {
+    case 'Sun': return <Sun size={size} className={className} style={style} />;
+    case 'CloudSun': return <CloudSun size={size} className={className} style={style} />;
+    case 'CloudRain': return <CloudRain size={size} className={className} style={style} />;
+    case 'CloudLightning': return <CloudLightning size={size} className={className} style={style} />;
+    case 'CloudFog': return <CloudFog size={size} className={className} style={style} />;
+    case 'CloudDrizzle': return <CloudDrizzle size={size} className={className} style={style} />;
+    case 'CloudSnow': return <CloudSnow size={size} className={className} style={style} />;
+    default: return <Sun size={size} className={className} style={style} />;
+  }
+};
 
 const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
   const [flights, setFlights] = useState([]);
@@ -12,11 +30,12 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [sortBy, setSortBy] = useState('cheapest'); // 'cheapest', 'fastest', 'earliest', 'latest'
 
+  // Route weather and delay risk state
+  const [routeWeather, setRouteWeather] = useState({ originWeather: null, destWeather: null, isLoading: true });
+  const [filterLowRiskOnly, setFilterLowRiskOnly] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    setError(null);
-    setVisibleCount(PAGE_SIZE);
 
     fetchFlights(searchData)
       .then(data => {
@@ -36,9 +55,39 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
     return () => { isMounted = false; };
   }, [searchData]);
 
+  const routeKey = `${searchData.from}->${searchData.to}`;
+  const [prevRouteKey, setPrevRouteKey] = useState(routeKey);
+  if (prevRouteKey !== routeKey) {
+    setPrevRouteKey(routeKey);
+    setRouteWeather({ originWeather: null, destWeather: null, isLoading: true });
+  }
+
+  // Fetch real-time airport weather for origin & destination
+  useEffect(() => {
+    let isMounted = true;
+    if (searchData.from && searchData.to) {
+      fetchRouteWeather(searchData.from, searchData.to)
+        .then(({ originWeather, destWeather }) => {
+          if (isMounted) {
+            setRouteWeather({ originWeather, destWeather, isLoading: false });
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setRouteWeather(prev => ({ ...prev, isLoading: false }));
+          }
+        });
+    }
+    return () => { isMounted = false; };
+  }, [searchData.from, searchData.to]);
+
   const [filterStops, setFilterStops] = useState('all');
   const [filterAirlines, setFilterAirlines] = useState([]);
   const [filterTime, setFilterTime] = useState('all');
+
+  const baseRouteRisk = useMemo(() => {
+    return predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, 0);
+  }, [routeWeather.originWeather, routeWeather.destWeather]);
 
   const uniqueAirlines = useMemo(() => {
     return [...new Set(flights.map(f => f.airline))];
@@ -61,12 +110,21 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
     };
   }, [flights]);
 
-  const hasActiveFilters = filterStops !== 'all' || filterAirlines.length > 0 || filterTime !== 'all';
+  const lowRiskCount = useMemo(() => {
+    if (!routeWeather.originWeather || !routeWeather.destWeather) return flights.length;
+    return flights.filter(f => {
+      const risk = predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, f.stops);
+      return risk.level === 'Low';
+    }).length;
+  }, [flights, routeWeather.originWeather, routeWeather.destWeather]);
+
+  const hasActiveFilters = filterStops !== 'all' || filterAirlines.length > 0 || filterTime !== 'all' || filterLowRiskOnly;
 
   const clearAllFilters = () => {
     setFilterStops('all');
     setFilterAirlines([]);
     setFilterTime('all');
+    setFilterLowRiskOnly(false);
   };
 
   const filteredFlights = useMemo(() => {
@@ -83,9 +141,13 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
         if (filterTime === 'afternoon' && (h24 < 12 || h24 >= 18)) return false;
         if (filterTime === 'evening' && (h24 < 18)) return false;
       }
+      if (filterLowRiskOnly) {
+        const flightRisk = predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, f.stops);
+        if (flightRisk.level !== 'Low') return false;
+      }
       return true;
     });
-  }, [flights, filterStops, filterAirlines, filterTime]);
+  }, [flights, filterStops, filterAirlines, filterTime, filterLowRiskOnly, routeWeather]);
 
   const sortedFlights = useMemo(() => {
     const list = [...filteredFlights];
@@ -105,64 +167,54 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
   }, [filteredFlights, sortBy]);
 
   const visibleFlights = sortedFlights.slice(0, visibleCount);
-  const hasMore = visibleCount < sortedFlights.length;
 
   return (
-    <div className="animate-fade-in">
+    <div className="results-container animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
       <div className="results-header">
         <div className="results-info">
-          <h2>Select your flight</h2>
+          <h2>Available Flights</h2>
           <p>
-            {searchData.from} {searchData.tripType === 'roundtrip' ? '↔' : '→'} {searchData.to} &nbsp;•&nbsp; 
-            {searchData.date} {searchData.tripType === 'roundtrip' && ` - ${searchData.returnDate}`} &nbsp;•&nbsp; 
-            {searchData.passengers} Passenger(s)
-            {!isLoading && flights.length > 0 && (
-              <span style={{
-                marginLeft: '0.75rem',
-                background: 'rgba(99,102,241,0.2)',
-                color: '#a5b4fc',
-                padding: '3px 12px',
-                borderRadius: '999px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                border: '1px solid rgba(99,102,241,0.3)'
-              }}>
-                {sortedFlights.length} available flight{sortedFlights.length === 1 ? '' : 's'}
+            {searchData.from} → {searchData.to} &bull; {searchData.date}
+            {searchData.returnDate && ` to ${searchData.returnDate}`} &bull; {searchData.passengers} Passenger(s)
+            {!isLoading && (
+              <span style={{ marginLeft: '8px', color: 'var(--accent-color)', fontWeight: 600 }}>
+                ({sortedFlights.length} found)
               </span>
             )}
           </p>
         </div>
         <button className="btn-secondary" onClick={onBack}>
-          <ArrowLeft size={16} style={{marginRight: '8px'}} />
-          Change Search
+          <ArrowLeft size={16} />
+          <span>Change Search</span>
         </button>
       </div>
 
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem 0' }}>
-          <Loader2 size={44} className="animate-spin" style={{ color: 'var(--accent-color)', marginBottom: '1rem' }} />
-          <h3 style={{ marginBottom: '0.5rem', color: '#f8fafc' }}>Fetching Live Airline Flights</h3>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: '420px', textAlign: 'center' }}>
-            Checking all real-time carriers and exact prices on Google Flights for {searchData.from} → {searchData.to}...
+          <Loader2 size={36} className="animate-spin" style={{ color: 'var(--accent-color)', marginBottom: '1rem' }} />
+          <h3 style={{ marginBottom: '0.35rem', color: 'var(--text-primary)' }}>Scanning Carrier Schedules</h3>
+          <p style={{ color: 'var(--text-secondary)', maxWidth: '420px', textAlign: 'center', fontSize: '0.875rem' }}>
+            Retrieving real-time fares and seat availability for {searchData.from} → {searchData.to}...
           </p>
         </div>
       ) : error ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: 'rgba(255,50,50,0.1)', borderRadius: '1rem', border: '1px solid rgba(255,50,50,0.3)' }}>
-          <h3 style={{ color: '#ff4d4d' }}>Error searching flights</h3>
+        <div style={{ textAlign: 'center', padding: '2.5rem', background: 'var(--danger-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--danger-color)' }}>
+          <h3 style={{ color: 'var(--danger-color)', marginBottom: '0.5rem' }}>Error searching flights</h3>
           <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
         </div>
       ) : flights.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: 'rgba(255,255,255,0.03)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <h3>No flights found</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>Try changing your dates or destination.</p>
+        <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--surface-color)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--surface-border)' }}>
+          <h3 style={{ marginBottom: '0.5rem' }}>No flights found</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>Try changing your dates or departure airport.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Sidebar */}
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '280px', padding: '1.5rem', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', margin: 0 }}>
-                <Filter size={18} /> Filters
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '280px', padding: '1.25rem', flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', margin: 0 }}>
+                <Filter size={16} style={{ color: 'var(--accent-color)' }} /> 
+                <span>Filters</span>
               </h3>
               {hasActiveFilters && (
                 <button
@@ -170,13 +222,14 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: '#f87171',
-                    fontSize: '0.8rem',
+                    color: 'var(--danger-color)',
+                    fontSize: '0.75rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '2px',
-                    padding: '2px 6px'
+                    padding: '2px 4px',
+                    fontWeight: 600
                   }}
                 >
                   <X size={12} /> Clear all
@@ -184,10 +237,13 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
               )}
             </div>
             
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Stops</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem' }}>
+            {/* Stops */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h4 style={{ marginBottom: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Stops
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input 
                       type="radio" 
@@ -197,9 +253,9 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                     />
                     Any stops
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({stopCounts.all})</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({stopCounts.all})</span>
                 </label>
-                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input 
                       type="radio" 
@@ -209,9 +265,9 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                     />
                     Non-stop only
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({stopCounts.direct})</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({stopCounts.direct})</span>
                 </label>
-                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input 
                       type="radio" 
@@ -221,10 +277,10 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                     />
                     1 stop or fewer
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({stopCounts.direct + stopCounts.oneStop})</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({stopCounts.direct + stopCounts.oneStop})</span>
                 </label>
                 {stopCounts.multiStop > 0 && (
-                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <input 
                         type="radio" 
@@ -234,18 +290,22 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                       />
                       2+ stops
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({stopCounts.multiStop})</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({stopCounts.multiStop})</span>
                   </label>
                 )}
               </div>
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Departure Time</h4>
+            {/* Departure Time */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h4 style={{ marginBottom: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Departure Time
+              </h4>
               <select 
                 value={filterTime} 
                 onChange={(e) => setFilterTime(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', borderRadius: '0.5rem' }}
+                className="input-field"
+                style={{ width: '100%', padding: '0.5rem', fontSize: '0.8125rem' }}
               >
                 <option value="all">Any departure time</option>
                 <option value="morning">Morning (5:00 AM - 11:59 AM)</option>
@@ -254,11 +314,33 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
               </select>
             </div>
 
+            {/* Delay Risk Filter */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h4 style={{ marginBottom: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Activity size={13} style={{ color: 'var(--accent-color)' }} />
+                <span>Delay Risk</span>
+              </h4>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={filterLowRiskOnly}
+                    onChange={(e) => setFilterLowRiskOnly(e.target.checked)}
+                  />
+                  <span>Low Delay Risk Only</span>
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({lowRiskCount})</span>
+              </label>
+            </div>
+
+            {/* Airlines */}
             <div>
-              <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: '#94a3b8' }}>Airlines</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <h4 style={{ marginBottom: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Airlines
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 {uniqueAirlines.map(airline => (
-                  <label key={airline} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem' }}>
+                  <label key={airline} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '0.875rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <input 
                         type="checkbox" 
@@ -273,7 +355,7 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
                       />
                       {airline}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({airlineCounts[airline] || 0})</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({airlineCounts[airline] || 0})</span>
                   </label>
                 ))}
               </div>
@@ -282,144 +364,160 @@ const FlightResults = ({ searchData, onBack, onSelectFlight }) => {
 
           {/* List */}
           <div className="flights-list" style={{ flex: 1, minWidth: '300px' }}>
+            {/* Live Route Weather & Delay Risk Banner */}
+            {routeWeather.isLoading ? (
+              <div className="route-weather-banner loading-pulse" style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-secondary)', fontSize: '0.8125rem', padding: '0.5rem 0' }}>
+                  <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent-color)' }} />
+                  <span>Retrieving live airport weather & corridor delay risk for {searchData.from} → {searchData.to}...</span>
+                </div>
+              </div>
+            ) : (routeWeather.originWeather && routeWeather.destWeather) && (
+              <div className="route-weather-banner" style={{ marginBottom: '1rem' }}>
+                <div className="weather-banner-grid">
+                  {/* Origin Station */}
+                  <div className="weather-station-box origin">
+                    <div className="station-role">DEPARTURE HUB</div>
+                    <div className="station-airport">
+                      <span className="station-iata">{routeWeather.originWeather.iata}</span>
+                      <span className="station-city">{routeWeather.originWeather.city}</span>
+                    </div>
+                    <div className="station-weather-row">
+                      <WeatherGlyph iconName={routeWeather.originWeather.iconName} size={18} style={{ color: 'var(--accent-color)' }} />
+                      <span className="station-temp">{routeWeather.originWeather.temperature}°C</span>
+                      <span className="station-cond">{routeWeather.originWeather.condition}</span>
+                    </div>
+                    <div className="station-details">
+                      <span><Wind size={11} /> {routeWeather.originWeather.windSpeed} km/h</span>
+                      <span><Eye size={11} /> {routeWeather.originWeather.visibilityKm} km vis</span>
+                    </div>
+                  </div>
+
+                  {/* Delay Risk Outlook */}
+                  <div className="weather-risk-center">
+                    <div className={`risk-outlook-badge risk-${baseRouteRisk.level.toLowerCase()}`}>
+                      {baseRouteRisk.level === 'Low' && <CheckCircle2 size={13} />}
+                      {baseRouteRisk.level === 'Moderate' && <AlertTriangle size={13} />}
+                      {baseRouteRisk.level === 'High' && <ShieldAlert size={13} />}
+                      <span>{baseRouteRisk.level} Delay Risk ({baseRouteRisk.score}%)</span>
+                    </div>
+                    <div className="risk-reason-line">{baseRouteRisk.reason}</div>
+                    <div className="risk-live-indicator">
+                      <span className={`live-pulse-dot ${routeWeather.originWeather.source === 'live' ? 'is-live' : 'is-cached'}`} />
+                      <span>{routeWeather.originWeather.source === 'live' ? 'Real-time Open-Meteo Telemetry' : 'Cached Meteorological Feed (15m)'}</span>
+                    </div>
+                  </div>
+
+                  {/* Destination Station */}
+                  <div className="weather-station-box destination">
+                    <div className="station-role">ARRIVAL HUB</div>
+                    <div className="station-airport">
+                      <span className="station-iata">{routeWeather.destWeather.iata}</span>
+                      <span className="station-city">{routeWeather.destWeather.city}</span>
+                    </div>
+                    <div className="station-weather-row">
+                      <WeatherGlyph iconName={routeWeather.destWeather.iconName} size={18} style={{ color: 'var(--accent-color)' }} />
+                      <span className="station-temp">{routeWeather.destWeather.temperature}°C</span>
+                      <span className="station-cond">{routeWeather.destWeather.condition}</span>
+                    </div>
+                    <div className="station-details">
+                      <span><Wind size={11} /> {routeWeather.destWeather.windSpeed} km/h</span>
+                      <span><Eye size={11} /> {routeWeather.destWeather.visibilityKm} km vis</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Sorting Toolbar */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: '1rem',
-              padding: '0.85rem 1.25rem',
-              background: 'rgba(15, 23, 42, 0.6)',
-              borderRadius: '0.75rem',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              marginBottom: '1rem'
+              gap: '0.75rem',
+              padding: '0.625rem 1rem',
+              background: 'var(--surface-color)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--surface-border)',
+              marginBottom: '1rem',
+              boxShadow: 'var(--shadow-sm)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>
-                <ArrowUpDown size={16} style={{ color: '#818cf8' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                <ArrowUpDown size={15} style={{ color: 'var(--accent-color)' }} />
                 <span>Sort by:</span>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setSortBy('cheapest')}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease',
-                    background: sortBy === 'cheapest' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
-                    color: sortBy === 'cheapest' ? '#a5b4fc' : '#94a3b8',
-                    border: sortBy === 'cheapest' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)'
-                  }}
-                >
-                  <DollarSign size={13} /> Lowest Price
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortBy('fastest')}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease',
-                    background: sortBy === 'fastest' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
-                    color: sortBy === 'fastest' ? '#a5b4fc' : '#94a3b8',
-                    border: sortBy === 'fastest' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)'
-                  }}
-                >
-                  <Clock size={13} /> Fastest
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortBy('earliest')}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease',
-                    background: sortBy === 'earliest' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
-                    color: sortBy === 'earliest' ? '#a5b4fc' : '#94a3b8',
-                    border: sortBy === 'earliest' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)'
-                  }}
-                >
-                  <Sunrise size={13} /> Earliest Dep
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSortBy('latest')}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease',
-                    background: sortBy === 'latest' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
-                    color: sortBy === 'latest' ? '#a5b4fc' : '#94a3b8',
-                    border: sortBy === 'latest' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)'
-                  }}
-                >
-                  <Sunset size={13} /> Latest Dep
-                </button>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'cheapest', label: 'Lowest Price', icon: DollarSign },
+                  { id: 'fastest', label: 'Fastest', icon: Clock },
+                  { id: 'earliest', label: 'Earliest Dep', icon: Sunrise },
+                  { id: 'latest', label: 'Latest Dep', icon: Sunset },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setSortBy(id)}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease',
+                      background: sortBy === id ? 'var(--accent-subtle)' : 'var(--surface-subtle)',
+                      color: sortBy === id ? 'var(--accent-color)' : 'var(--text-secondary)',
+                      border: sortBy === id ? '1px solid var(--accent-color)' : '1px solid var(--surface-border)'
+                    }}
+                  >
+                    <Icon size={12} />
+                    <span>{label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
             {sortedFlights.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem' }}>
-                <p>No flights match your filters.</p>
-                <button onClick={clearAllFilters} className="btn-secondary" style={{ marginTop: '1rem' }}>Clear Filters</button>
+              <div style={{ padding: '2.5rem', textAlign: 'center', background: 'var(--surface-color)', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-border)' }}>
+                <p style={{ color: 'var(--text-secondary)' }}>No flights match your active filters.</p>
+                <button onClick={clearAllFilters} className="btn-secondary" style={{ marginTop: '0.875rem' }}>
+                  Clear Filters
+                </button>
               </div>
             ) : (
-              <>
-                {visibleFlights.map((flight) => (
-                  <FlightCard
-                    key={flight.id}
-                    flight={flight}
-                    tripType={searchData.tripType}
+              visibleFlights.map((flight) => {
+                const flightRisk = predictDelayRisk(routeWeather.originWeather, routeWeather.destWeather, flight.stops);
+                return (
+                  <FlightCard 
+                    key={flight.id} 
+                    flight={flight} 
+                    tripType={searchData.tripType} 
                     passengers={searchData.passengers}
-                    onSelectClass={onSelectFlight}
+                    onSelectClass={(fl, cls) => onSelectFlight(fl, cls)}
+                    weatherData={{
+                      originWeather: routeWeather.originWeather,
+                      destWeather: routeWeather.destWeather,
+                      risk: flightRisk
+                    }}
                   />
-                ))}
+                );
+              })
+            )}
 
-                {hasMore && (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setVisibleCount(c => c + 25)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.75rem' }}
-                    >
-                      <ChevronDown size={18} />
-                      Show more ({sortedFlights.length - visibleCount} remaining)
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setVisibleCount(sortedFlights.length)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.75rem', background: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.3)' }}
-                    >
-                      Show all {sortedFlights.length} flights
-                    </button>
-                  </div>
-                )}
-              </>
+            {visibleCount < sortedFlights.length && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.25rem' }}>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <span>Show More Flights</span>
+                  <ChevronDown size={16} />
+                </button>
+              </div>
             )}
           </div>
         </div>

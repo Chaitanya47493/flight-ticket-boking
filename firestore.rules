@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// ==============================================================================
+// Aero Space — Firestore Security Rules
+//
+// HOW TO DEPLOY TO FIREBASE CONSOLE:
+// 1. Go to Firebase Console: https://console.firebase.google.com
+// 2. Select your project -> Click "Firestore Database" in the left sidebar
+// 3. Open the "Rules" tab at the top
+// 4. Select all, replace with the code below, and click "Publish"
+// ==============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Determine if the requesting user is an administrator
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email in [
+          'admin@aerospace.com',
+          'developer@aerospace.com',
+          'rohit@aerospace.com',
+          'keertirohit@gmail.com'
+          // Add your administrator email address here
+        ] || request.auth.token.admin == true
+      );
+    }
+
+    // Bookings collection: users read/update own bookings; admins read all
+    match /bookings/{bookingId} {
+      // Users can only read their own bookings; Admins can inspect all bookings
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      // Authenticated users can create bookings assigned to their own user ID
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.totalAmountPaid is number
+        && request.resource.data.totalAmountPaid >= 0;
+
+      // Users can cancel their own booking; Admins have update access
+      allow update: if request.auth != null && (
+        (resource.data.userId == request.auth.uid && request.resource.data.status == 'CANCELLED')
+        || isAdmin()
+      );
+
+      // Prevent document deletion to preserve transaction history
+      allow delete: if false;
+    }
+
+    // Real-Time Seat Inventory collection: authenticated users can read/write
+    match /seatInventory/{inventoryId} {
+      // Authenticated users can read occupied seats
+      allow read: if request.auth != null;
+
+      // Authenticated users can write/merge occupied seat IDs upon booking or cancellation
+      allow write: if request.auth != null;
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

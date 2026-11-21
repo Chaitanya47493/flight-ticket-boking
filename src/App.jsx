@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
-import SearchForm from './components/SearchForm';
+import WelcomePage from './components/WelcomePage';
+import HomePage from './components/HomePage';
 import FlightResults from './components/FlightResults';
 import PassengerForm from './components/PassengerForm';
 import SeatSelection from './components/SeatSelection';
@@ -8,27 +9,48 @@ import PaymentForm from './components/PaymentForm';
 import BookingConfirmation from './components/BookingConfirmation';
 import MyBookings from './components/MyBookings';
 import LoginPage from './components/LoginPage';
+import GodsEyeRadar from './components/GodsEyeRadar';
+import AdminDashboard from './components/AdminDashboard';
 import { Search, Plane, User, Armchair, CreditCard, CheckCircle } from 'lucide-react';
 import { db, auth } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import emailjs from '@emailjs/browser';
 import './App.css';
 
+// Helper: Sanitize user text before embedding into HTML emails to prevent HTML injection
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // Initialize EmailJS with public key
 emailjs.init("twDo3sgI5ca605MeZ");
 
+const getInitialGuestSession = () => {
+  try {
+    return sessionStorage.getItem('aero_guest_entered') === 'true';
+  } catch {
+    return false;
+  }
+};
+
 function App() {
   const [user, setUser] = useState(undefined); // undefined = still loading
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
+  const [hasEntered, setHasEntered] = useState(getInitialGuestSession);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingFlightSelection, setPendingFlightSelection] = useState(null);
+  const [postLoginTarget, setPostLoginTarget] = useState(null);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
+  const [trackedBooking, setTrackedBooking] = useState(null);
+  const [initialPnr, setInitialPnr] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [searchData, setSearchData] = useState(null);
   const [bookingData, setBookingData] = useState({
@@ -40,12 +62,48 @@ function App() {
     payment: null,
   });
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setShowLoginModal(false);
+        setHasEntered(true);
+        try {
+          sessionStorage.setItem('aero_guest_entered', 'true');
+        } catch {
+          // Ignore storage errors in restricted iframe/private mode
+        }
+        if (pendingFlightSelection) {
+          setBookingData(prev => ({
+            ...prev,
+            flight: pendingFlightSelection.flight,
+            selectedClass: pendingFlightSelection.selectedClass
+          }));
+          setCurrentStep(3);
+          setPendingFlightSelection(null);
+        } else if (postLoginTarget === 'my_bookings') {
+          setShowMyBookings(true);
+          setShowRadar(false);
+          setShowAdmin(false);
+          setPostLoginTarget(null);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [pendingFlightSelection, postLoginTarget]);
+
   const handleSearch = (data) => {
     setSearchData(data);
     setCurrentStep(2);
   };
 
   const handleSelectFlight = (flight, selectedClass) => {
+    if (!user) {
+      // Allow guests to browse, but prompt login before Step 3 Passenger Details
+      setPendingFlightSelection({ flight, selectedClass });
+      setShowLoginModal(true);
+      return;
+    }
     setBookingData(prev => ({ ...prev, flight, selectedClass }));
     setCurrentStep(3);
   };
@@ -78,10 +136,25 @@ function App() {
     const basePrice = bookingData.selectedClass?.price || 0;
     const calculatedTotal = (basePrice * passengerCount) + (bookingData.seatFee || 0);
 
+    const effectiveTotal = paymentData.totalAmountPaid || calculatedTotal;
+
+    // Defense-in-depth: Ensure no sensitive raw card/CVV data can ever reach storage
+    const sanitizedPayment = {
+      cardLast4: paymentData.cardLast4 || (paymentData.cardNumber ? paymentData.cardNumber.replace(/\D/g, '').slice(-4) : '1234'),
+      cardBrand: paymentData.cardBrand || 'Card',
+      maskedCardNumber: paymentData.maskedCardNumber || `•••• •••• •••• ${paymentData.cardLast4 || '1234'}`,
+      nameOnCard: paymentData.nameOnCard || '',
+      totalAmountPaid: effectiveTotal,
+      paymentMethod: 'card_simulation',
+      status: 'completed'
+    };
+
     const finalBookingData = {
       ...bookingData,
-      payment: paymentData,
-      totalAmountPaid: paymentData.totalAmountPaid || calculatedTotal,
+      payment: sanitizedPayment,
+      fareBreakdown: paymentData.fareBreakdown || null,
+      status: 'CONFIRMED',
+      totalAmountPaid: effectiveTotal,
       userId: user.uid,
       createdAt: new Date()
     };
@@ -92,11 +165,70 @@ function App() {
       const docRef = await addDoc(collection(db, 'bookings'), finalBookingData);
       setBookingId(docRef.id);
 
-      // Extract seat tags & passenger names
-      const assignedSeatsStr = Object.values(finalBookingData.selectedSeats || {}).map(s => s.id).join(', ') || 'Auto-Assigned';
+      // Write newly booked seat IDs into seatInventory
+      try {
+        const isRoundTrip = finalBookingData.searchData?.tripType === 'roundtrip' && !!finalBookingData.searchData?.returnDate;
+        const flightNum = finalBookingData.flight.flightNumber || 'FL100';
+        const outboundDate = finalBookingData.searchData.date;
+
+        if (isRoundTrip && finalBookingData.selectedSeats?.outbound && finalBookingData.selectedSeats?.return) {
+          const outboundSeatIds = Object.values(finalBookingData.selectedSeats.outbound).map(s => s.id).filter(Boolean);
+          const returnSeatIds = Object.values(finalBookingData.selectedSeats.return).map(s => s.id).filter(Boolean);
+
+          const outboundDocId = `${flightNum}_${outboundDate}`;
+          const returnDocId = `${flightNum}-RT_${finalBookingData.searchData.returnDate}`;
+
+          if (outboundSeatIds.length > 0) {
+            await setDoc(doc(db, 'seatInventory', outboundDocId), {
+              occupiedSeats: arrayUnion(...outboundSeatIds)
+            }, { merge: true });
+          }
+
+          if (returnSeatIds.length > 0) {
+            await setDoc(doc(db, 'seatInventory', returnDocId), {
+              occupiedSeats: arrayUnion(...returnSeatIds)
+            }, { merge: true });
+          }
+        } else {
+          const seatsObj = finalBookingData.selectedSeats?.outbound || finalBookingData.selectedSeats || {};
+          const bookedSeats = Object.values(seatsObj).map(s => s.id).filter(Boolean);
+          const docId = `${flightNum}_${outboundDate}`;
+          if (bookedSeats.length > 0) {
+            await setDoc(doc(db, 'seatInventory', docId), {
+              occupiedSeats: arrayUnion(...bookedSeats)
+            }, { merge: true });
+          }
+        }
+      } catch (invErr) {
+        console.warn('Seat inventory sync notice:', invErr.message);
+      }
+
+      // Extract seat tags & passenger names (supporting round-trip)
+      let assignedSeatsStr = 'Auto-Assigned';
+      if (finalBookingData.selectedSeats?.outbound && finalBookingData.selectedSeats?.return) {
+        const outSeats = Object.values(finalBookingData.selectedSeats.outbound).map(s => s.id).join(', ');
+        const retSeats = Object.values(finalBookingData.selectedSeats.return).map(s => s.id).join(', ');
+        assignedSeatsStr = `Outbound: ${outSeats} | Return: ${retSeats}`;
+      } else {
+        const flatSeats = finalBookingData.selectedSeats?.outbound || finalBookingData.selectedSeats || {};
+        assignedSeatsStr = Object.values(flatSeats).map(s => s.id).join(', ') || 'Auto-Assigned';
+      }
+
       const passengerNamesStr = finalBookingData.passengers?.list 
         ? finalBookingData.passengers.list.map(p => `${p.firstName} ${p.lastName}`).join(', ')
         : `${finalBookingData.passengers?.firstName || ''} ${finalBookingData.passengers?.lastName || ''}`;
+
+      const cleanFirstName = escapeHtml(finalBookingData.passengers?.firstName || 'Traveler');
+      const cleanPassengerNames = escapeHtml(passengerNamesStr);
+      const cleanFlightAirline = escapeHtml(finalBookingData.flight.airline);
+      const cleanFlightNumber = escapeHtml(finalBookingData.flight.flightNumber);
+      const cleanOrigin = escapeHtml(finalBookingData.flight.origin);
+      const cleanDestination = escapeHtml(finalBookingData.flight.destination);
+      const cleanDepTime = escapeHtml(finalBookingData.flight.departureTime);
+      const cleanArrTime = escapeHtml(finalBookingData.flight.arrivalTime);
+      const cleanClassName = escapeHtml(finalBookingData.selectedClass?.name || 'Economy');
+      const cleanSeats = escapeHtml(assignedSeatsStr);
+      const bookingRef = escapeHtml(docRef.id.substring(0, 6).toUpperCase());
 
       const companyLogo = "https://img.icons8.com/nolan/64/airplane-take-off.png";
       
@@ -110,15 +242,15 @@ function App() {
           <div style="padding: 40px 30px;">
             <div style="text-align: center; margin-bottom: 30px;">
               <h2 style="color: #1e293b; margin: 0 0 10px 0;">Booking Confirmed! ✈️</h2>
-              <p style="color: #64748b; margin: 0; font-size: 16px;">Hi ${finalBookingData.passengers.firstName}, you're all set for your trip.</p>
+              <p style="color: #64748b; margin: 0; font-size: 16px;">Hi ${cleanFirstName}, you're all set for your trip.</p>
             </div>
 
             <div style="background: #f8fafc; border-radius: 12px; padding: 25px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <img src="${finalBookingData.flight.airlineLogo}" alt="${finalBookingData.flight.airline}" style="height: 40px; object-fit: contain;" />
+                <img src="${finalBookingData.flight.airlineLogo}" alt="${cleanFlightAirline}" style="height: 40px; object-fit: contain;" />
                 <div style="text-align: right;">
                   <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 600;">Booking Ref</span>
-                  <strong style="color: #6366f1; font-size: 20px; letter-spacing: 2px;">${docRef.id.substring(0, 6).toUpperCase()}</strong>
+                  <strong style="color: #6366f1; font-size: 20px; letter-spacing: 2px;">${bookingRef}</strong>
                 </div>
               </div>
 
@@ -126,29 +258,29 @@ function App() {
                 <tr>
                   <td style="padding-bottom: 15px; width: 50%;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Flight</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.airline} ${finalBookingData.flight.flightNumber}</strong>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanFlightAirline} ${cleanFlightNumber}</strong>
                   </td>
                   <td style="padding-bottom: 15px; width: 50%;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Class & Seats</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.selectedClass.name} (Seats: ${assignedSeatsStr})</strong>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanClassName} (Seats: ${cleanSeats})</strong>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding-bottom: 15px;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Departure</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.origin}</strong>
-                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.departureTime}</div>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanOrigin}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${cleanDepTime}</div>
                   </td>
                   <td style="padding-bottom: 15px;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Arrival</span>
-                    <strong style="color: #0f172a; font-size: 16px;">${finalBookingData.flight.destination}</strong>
-                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${finalBookingData.flight.arrivalTime}</div>
+                    <strong style="color: #0f172a; font-size: 16px;">${cleanDestination}</strong>
+                    <div style="color: #475569; font-size: 14px; margin-top: 4px;">${cleanArrTime}</div>
                   </td>
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 10px; border-top: 1px solid #e2e8f0;">
                     <span style="display: block; color: #64748b; font-size: 12px; text-transform: uppercase;">Passengers (${passengerCount})</span>
-                    <strong style="color: #0f172a; font-size: 15px;">${passengerNamesStr}</strong>
+                    <strong style="color: #0f172a; font-size: 15px;">${cleanPassengerNames}</strong>
                   </td>
                 </tr>
               </table>
@@ -156,7 +288,7 @@ function App() {
 
             <div style="background: #e0e7ff; border-radius: 8px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
               <span style="color: #3730a3; font-weight: 600;">Total Paid</span>
-              <strong style="color: #312e81; font-size: 20px;">₹${calculatedTotal.toLocaleString()}</strong>
+              <strong style="color: #312e81; font-size: 20px;">₹${effectiveTotal.toLocaleString()}</strong>
             </div>
           </div>
           
@@ -167,7 +299,8 @@ function App() {
         </div>
       `;
 
-      const recipientEmail = finalBookingData.passengers?.email || user.email;
+      // Prevent open email relay abuse: Always deliver to the verified authenticated user's email
+      const recipientEmail = user.email;
 
       const templateParams = {
         email: recipientEmail,
@@ -193,13 +326,14 @@ function App() {
         "template_ticket",
         templateParams
       ).then(
-        (response) => console.log('Email sent successfully!', response.status, response.text),
-        (error) => console.error('Failed to send email:', error)
+        (response) => {
+          if (import.meta.env.DEV) console.log('Email sent successfully!', response.status);
+        },
+        () => {}
       );
 
       setCurrentStep(6);
-    } catch (e) {
-      console.error('Error adding document: ', e);
+    } catch {
       alert('Failed to save booking. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -217,7 +351,40 @@ function App() {
       payment: null
     });
     setBookingId('');
+    setInitialPnr('');
     setCurrentStep(1);
+  };
+
+  const handleNavigateHome = () => {
+    setShowMyBookings(false);
+    setShowRadar(false);
+    setShowAdmin(false);
+    setTrackedBooking(null);
+    setCurrentStep(1);
+  };
+
+  const handleContinueGuest = () => {
+    try {
+      sessionStorage.setItem('aero_guest_entered', 'true');
+    } catch {
+      // Ignore storage errors in restricted private mode
+    }
+    setHasEntered(true);
+  };
+
+  const handleLogout = () => {
+    signOut(auth);
+    try {
+      sessionStorage.removeItem('aero_guest_entered');
+    } catch {
+      // Ignore storage errors
+    }
+    setHasEntered(false);
+    setShowMyBookings(false);
+    setShowRadar(false);
+    setShowAdmin(false);
+    setTrackedBooking(null);
+    handleReset();
   };
 
   // ── Loading splash ──────────────────────────────────────────────
@@ -228,8 +395,8 @@ function App() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-        color: '#6366f1',
+        background: 'var(--bg-color)',
+        color: 'var(--accent-color)',
         fontSize: '1.5rem',
         gap: '1rem',
         flexDirection: 'column',
@@ -240,28 +407,95 @@ function App() {
     );
   }
 
-  // ── Not logged in → show Login Page ────────────────────────────
-  if (!user) {
-    return <LoginPage />;
+  // ── Guest Login Prompt Modal (if user clicked "Book", "My Bookings", or "Sign In") ──
+  if (showLoginModal) {
+    return (
+      <LoginPage
+        onCancel={() => {
+          setShowLoginModal(false);
+          setPendingFlightSelection(null);
+          setPostLoginTarget(null);
+        }}
+        pendingMessage={
+          pendingFlightSelection
+            ? `Please sign in to proceed with booking your ${pendingFlightSelection.flight?.airline || ''} flight (${pendingFlightSelection.flight?.flightNumber || ''})`
+            : (postLoginTarget === 'my_bookings' ? 'Please sign in to view and manage your flight bookings' : null)
+        }
+      />
+    );
   }
 
-  // ── Logged in → show booking app ───────────────────────────────
+  // ── Main App Container (accessible to guests for search/results, and authenticated users for booking) ──
+  const isWelcomeView = !user && !hasEntered;
+
   return (
     <div className="app-container">
       <Header
-        onMyBookingsClick={() => setShowMyBookings(true)}
-        onLogoClick={() => setShowMyBookings(false)}
-        user={user}
-        onLogout={() => {
-          signOut(auth);
-          setShowMyBookings(false);
-          handleReset();
+        onHomeClick={handleNavigateHome}
+        isHomeActive={!isWelcomeView && !showRadar && !showAdmin && !showMyBookings && currentStep === 1}
+        isWelcome={isWelcomeView}
+        onMyBookingsClick={(pnr = '') => {
+          setInitialPnr(typeof pnr === 'string' ? pnr : '');
+          if (!user) {
+            setPostLoginTarget('my_bookings');
+            setShowLoginModal(true);
+          } else {
+            setShowMyBookings(true);
+            setShowRadar(false);
+            setShowAdmin(false);
+            setTrackedBooking(null);
+          }
         }}
+        onRadarClick={() => {
+          setShowRadar(true);
+          setShowMyBookings(false);
+          setShowAdmin(false);
+          setTrackedBooking(null);
+        }}
+        showRadar={showRadar}
+        onAdminClick={() => {
+          setShowAdmin(true);
+          setShowRadar(false);
+          setShowMyBookings(false);
+          setTrackedBooking(null);
+        }}
+        showAdmin={showAdmin}
+        onLoginClick={() => {
+          setShowLoginModal(true);
+        }}
+        onLogoClick={isWelcomeView ? () => window.scrollTo({ top: 0, behavior: 'smooth' }) : handleNavigateHome}
+        user={user}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
-        {showMyBookings ? (
-          <MyBookings user={user} />
+        {showRadar ? (
+          <GodsEyeRadar
+            trackedBooking={trackedBooking}
+            onClose={() => {
+              setShowRadar(false);
+              setTrackedBooking(null);
+            }}
+          />
+        ) : showAdmin ? (
+          <AdminDashboard
+            onClose={() => setShowAdmin(false)}
+          />
+        ) : showMyBookings ? (
+          <MyBookings
+            user={user}
+            onTrackFlight={(booking) => {
+              setTrackedBooking(booking);
+              setShowRadar(true);
+              setShowMyBookings(false);
+            }}
+            initialPnr={initialPnr}
+          />
+        ) : isWelcomeView ? (
+          <WelcomePage
+            onSignIn={() => setShowLoginModal(true)}
+            onContinueGuest={handleContinueGuest}
+          />
         ) : (
           <>
             {/* 6-Step Stepper */}
@@ -305,7 +539,31 @@ function App() {
             )}
 
             {/* Step Content */}
-            {currentStep === 1 && <SearchForm onSearch={handleSearch} />}
+            {currentStep === 1 && (
+              <HomePage
+                onSearch={handleSearch}
+                initialSearchData={searchData}
+                onRadarClick={() => {
+                  setShowRadar(true);
+                  setShowMyBookings(false);
+                  setShowAdmin(false);
+                  setTrackedBooking(null);
+                }}
+                onMyBookingsClick={(pnr = '') => {
+                  setInitialPnr(typeof pnr === 'string' ? pnr : '');
+                  if (!user) {
+                    setPostLoginTarget('my_bookings');
+                    setShowLoginModal(true);
+                  } else {
+                    setShowMyBookings(true);
+                    setShowRadar(false);
+                    setShowAdmin(false);
+                    setTrackedBooking(null);
+                  }
+                }}
+                user={user}
+              />
+            )}
 
             {currentStep === 2 && (
               <FlightResults
@@ -330,6 +588,7 @@ function App() {
                 selectedFlight={bookingData.flight}
                 selectedClass={bookingData.selectedClass}
                 passengers={bookingData.passengers}
+                searchData={searchData}
                 onBack={() => setCurrentStep(3)}
                 onConfirmSeats={handleSeatConfirm}
               />
@@ -338,7 +597,7 @@ function App() {
             {currentStep === 5 && (
               <PaymentForm
                 bookingData={bookingData}
-                userEmail={user.email}
+                userEmail={user?.email || ''}
                 onBack={() => setCurrentStep(4)}
                 onSubmit={handlePaymentSubmit}
                 isSubmitting={isSubmitting}
@@ -350,6 +609,11 @@ function App() {
                 bookingData={bookingData}
                 bookingId={bookingId}
                 onReset={handleReset}
+                onTrackFlight={(booking) => {
+                  setTrackedBooking(booking);
+                  setShowRadar(true);
+                  setShowMyBookings(false);
+                }}
               />
             )}
           </>
