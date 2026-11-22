@@ -180,6 +180,11 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.input-field::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
 .input-field:focus {
   border-color: var(--accent-color);
   box-shadow: 0 0 0 2px var(--accent-subtle);
@@ -818,6 +823,360 @@
   align-items: flex-start;
   max-width: 1000px;
   margin: 0 auto;
+}
+
+/* ── Travel Add-Ons Panel ── */
+.addons-panel {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.addons-panel-title {
+  margin: 0 0 1.25rem 0;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+}
+
+.addons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.addon-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.addon-card:hover {
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.addon-card.selectable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.addon-card.active {
+  border-color: var(--accent-color);
+  background: var(--accent-subtle);
+}
+
+.addon-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.addon-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.addon-card-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 0.75rem 0;
+}
+
+.addon-card-price {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.addon-meal-btn-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.addon-meal-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addon-meal-btn:hover {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.addon-meal-btn.selected-none {
+  border: 1.5px solid var(--accent-color);
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.addon-meal-btn.selected-veg {
+  border: 1.5px solid var(--success-color);
+  background: var(--success-bg);
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.addon-meal-btn.selected-nonveg {
+  border: 1.5px solid var(--danger-color);
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+/* ── Fare Breakdown Card ── */
+.fare-breakdown-card {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.fare-breakdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fare-breakdown-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+}
+
+.fare-summary-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  background: var(--accent-subtle);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-color);
+}
+
+.fare-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+}
+
+.fare-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fare-row-label {
+  color: var(--text-secondary);
+}
+
+.fare-row-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fare-row-highlight {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.fare-row-success {
+  color: var(--success-color);
+  font-weight: 700;
+}
+
+.fare-addons-breakdown {
+  border-left: 2px solid var(--accent-color);
+  padding-left: 0.75rem;
+  margin: 0.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fare-addons-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-color);
+}
+
+.fare-addons-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.fare-addons-item span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fare-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.75rem;
+  margin-top: 0.4rem;
+  font-size: 1.15rem;
+}
+
+.fare-total-row span {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fare-total-price {
+  color: var(--accent-color);
+  font-size: 1.35rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+}
+
+/* ── Promo Code Box ── */
+.promo-box-container {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.promo-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.promo-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.promo-input-field {
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.promo-input-field:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+  background: var(--surface-color);
+}
+
+.promo-input-field::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.promo-applied-box {
+  background: var(--success-bg);
+  border: 1px solid var(--success-color);
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.promo-applied-text {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--success-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.promo-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+
+.promo-remove-btn:hover {
+  color: var(--danger-color);
+}
+
+.promo-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.payment-processing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+}
+
+[data-theme="light"] .payment-processing-overlay {
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.payment-processing-spinner-box {
+  color: var(--accent-color);
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-direction: column;
+  text-align: center;
+}
+
+.payment-processing-subtext {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 /* ── Confirmation ────────────────────────────────────────────────── */

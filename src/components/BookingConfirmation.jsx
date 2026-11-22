@@ -36,7 +36,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight })
 
   return (
     <div className="confirmation-container animate-scale-in">
-      <div style={{ padding: '2.5rem', borderRadius: '1rem', background: 'var(--bg-color)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ padding: '2.5rem', borderRadius: '1rem', background: 'var(--surface-color)', border: '1px solid var(--surface-border)' }}>
         <div className="success-icon-wrapper" style={{ margin: '0 auto' }}>
           <Check size={48} />
         </div>
@@ -96,7 +96,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight })
 
           <div className="summary-row">
             <span className="summary-label">Assigned Seat(s)</span>
-            <span className="summary-value" style={{ color: '#4ade80', fontWeight: 600 }}>
+            <span className="summary-value" style={{ color: 'var(--success-color)', fontWeight: 600 }}>
               {assignedSeatsStr}
             </span>
           </div>
@@ -127,8 +127,8 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight })
           </div>
 
           {bookingData?.fareBreakdown && (
-            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--surface-border)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fare & Charges Breakdown
               </div>
               <div className="summary-row" style={{ fontSize: '0.88rem' }}>
@@ -153,7 +153,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight })
                 </div>
               )}
               {bookingData.fareBreakdown.discount > 0 && (
-                <div className="summary-row" style={{ fontSize: '0.88rem', color: '#4ade80' }}>
+                <div className="summary-row" style={{ fontSize: '0.88rem', color: 'var(--success-color)' }}>
                   <span className="summary-label">Promo Discount ({bookingData.fareBreakdown.promoCode})</span>
                   <span className="summary-value">-₹{bookingData.fareBreakdown.discount?.toLocaleString()}</span>
                 </div>
@@ -165,7 +165,7 @@ const BookingConfirmation = ({ bookingData, onReset, bookingId, onTrackFlight })
             </div>
           )}
 
-          <div className="summary-row" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+          <div className="summary-row" style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
             <span className="summary-label" style={{ fontWeight: 600 }}>Total Amount Paid</span>
             <span className="summary-value" style={{ color: 'var(--accent-color)', fontSize: '1.25rem', fontWeight: 700 }}>
               ₹{totalAmount.toLocaleString()}

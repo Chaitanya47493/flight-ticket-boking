@@ -201,8 +201,8 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
   const fieldStyle = (field) => ({
     paddingLeft: '1rem',
     letterSpacing: field === 'cardNumber' ? '2px' : undefined,
-    borderColor: errors[field] ? '#f87171' : undefined,
-    boxShadow: errors[field] ? '0 0 0 2px rgba(248,113,113,0.2)' : undefined,
+    borderColor: errors[field] ? 'var(--danger-color)' : undefined,
+    boxShadow: errors[field] ? '0 0 0 2px var(--danger-bg)' : undefined,
   });
 
   const cardDigits = paymentData.cardNumber.replace(/\s/g, '');
@@ -210,11 +210,11 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
   return (
     <div className="payment-form-container animate-fade-in" style={{ position: 'relative' }}>
       {isSubmitting && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.85)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem', backdropFilter: 'blur(4px)' }}>
-          <div style={{ color: 'var(--accent-color)', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexDirection: 'column' }}>
+        <div className="payment-processing-overlay">
+          <div className="payment-processing-spinner-box">
             <Lock className="animate-pulse" size={36} />
             <span>Processing Secure Payment of ₹{grandTotal.toLocaleString()}...</span>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Generating E-Ticket & Boarding Pass</span>
+            <span className="payment-processing-subtext">Generating E-Ticket & Boarding Pass</span>
           </div>
         </div>
       )}
@@ -227,66 +227,40 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
       </div>
 
       {/* ── TRAVEL ADD-ONS BOX ─────────────────────────────────────── */}
-      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="glass-panel addons-panel">
+        <h3 className="addons-panel-title">
           <Luggage size={20} className="logo-icon" /> Travel Add-Ons & Preferences (Optional)
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div className="addons-grid">
           {/* Meal Selection */}
-          <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Utensils size={18} style={{ color: '#fbbf24' }} />
-              <strong style={{ fontSize: '0.95rem' }}>In-Flight Meal</strong>
+          <div className="addon-card">
+            <div className="addon-card-header">
+              <Utensils size={18} style={{ color: 'var(--warning-color)' }} />
+              <strong className="addon-card-title">In-Flight Meal</strong>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 0.75rem 0' }}>
+            <p className="addon-card-desc">
               Fresh chef-prepared meal served warm on your flight.
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div className="addon-meal-btn-group">
               <button
                 type="button"
                 onClick={() => setMealOption('none')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  border: mealOption === 'none' ? '2px solid var(--accent-color)' : '1px solid rgba(255,255,255,0.1)',
-                  background: mealOption === 'none' ? 'rgba(99,102,241,0.2)' : 'transparent',
-                  color: mealOption === 'none' ? '#fff' : '#94a3b8',
-                  cursor: 'pointer'
-                }}
+                className={`addon-meal-btn ${mealOption === 'none' ? 'selected-none' : ''}`}
               >
                 No Meal (₹0)
               </button>
               <button
                 type="button"
                 onClick={() => setMealOption('veg')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  border: mealOption === 'veg' ? '1px solid var(--success-color)' : '1px solid var(--surface-border)',
-                  background: mealOption === 'veg' ? 'var(--success-bg)' : 'var(--surface-color)',
-                  color: mealOption === 'veg' ? 'var(--success-color)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
-                }}
+                className={`addon-meal-btn ${mealOption === 'veg' ? 'selected-veg' : ''}`}
               >
                 Veg (₹350/pax)
               </button>
               <button
                 type="button"
                 onClick={() => setMealOption('non-veg')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  border: mealOption === 'non-veg' ? '1px solid var(--danger-color)' : '1px solid var(--surface-border)',
-                  background: mealOption === 'non-veg' ? 'var(--danger-bg)' : 'var(--surface-color)',
-                  color: mealOption === 'non-veg' ? 'var(--danger-color)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
-                }}
+                className={`addon-meal-btn ${mealOption === 'non-veg' ? 'selected-nonveg' : ''}`}
               >
                 Non-Veg (₹450/pax)
               </button>
@@ -294,46 +268,60 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
           </div>
 
           {/* Extra Baggage Toggle */}
-          <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div
+            className={`addon-card selectable ${extraBaggage ? 'active' : ''}`}
+            onClick={() => setExtraBaggage(prev => !prev)}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                  <Luggage size={18} style={{ color: '#38bdf8' }} />
-                  <strong style={{ fontSize: '0.95rem' }}>Extra 10kg Baggage</strong>
+                <div className="addon-card-header">
+                  <Luggage size={18} style={{ color: 'var(--accent-color)' }} />
+                  <strong className="addon-card-title">Extra 10kg Baggage</strong>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 0.5rem 0' }}>
+                <p className="addon-card-desc">
                   Pre-book additional checked baggage allowance and save up to 40% over airport rates.
                 </p>
-                <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>+₹1,200 total</span>
+                <span className="addon-card-price">+₹1,200 total</span>
               </div>
               <input
                 type="checkbox"
                 id="extraBaggageCheck"
                 checked={extraBaggage}
-                onChange={(e) => setExtraBaggage(e.target.checked)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setExtraBaggage(e.target.checked);
+                }}
+                onClick={(e) => e.stopPropagation()}
                 style={{ width: '20px', height: '20px', accentColor: 'var(--accent-color)', cursor: 'pointer', marginTop: '4px' }}
               />
             </div>
           </div>
 
           {/* Travel Insurance Toggle */}
-          <div style={{ background: 'rgba(30, 41, 59, 0.4)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div
+            className={`addon-card selectable ${travelInsurance ? 'active' : ''}`}
+            onClick={() => setTravelInsurance(prev => !prev)}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                  <Shield size={18} style={{ color: '#4ade80' }} />
-                  <strong style={{ fontSize: '0.95rem' }}>Comprehensive Insurance</strong>
+                <div className="addon-card-header">
+                  <Shield size={18} style={{ color: 'var(--success-color)' }} />
+                  <strong className="addon-card-title">Comprehensive Insurance</strong>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 0.5rem 0' }}>
+                <p className="addon-card-desc">
                   Covers medical emergencies, flight delays, trip cancellations & lost baggage.
                 </p>
-                <span style={{ fontSize: '0.85rem', color: '#4ade80', fontWeight: 600 }}>+₹249 per passenger</span>
+                <span className="addon-card-price" style={{ color: 'var(--success-color)' }}>+₹249 per passenger</span>
               </div>
               <input
                 type="checkbox"
                 id="travelInsuranceCheck"
                 checked={travelInsurance}
-                onChange={(e) => setTravelInsurance(e.target.checked)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setTravelInsurance(e.target.checked);
+                }}
+                onClick={(e) => e.stopPropagation()}
                 style={{ width: '20px', height: '20px', accentColor: 'var(--accent-color)', cursor: 'pointer', marginTop: '4px' }}
               />
             </div>
@@ -343,48 +331,48 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
 
       <div className="payment-layout">
         {/* Fare Summary & Breakdown Box */}
-        <div className="glass-panel fare-breakdown-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="glass-panel fare-breakdown-card">
+          <div className="fare-breakdown-header">
+            <h3>
               <Ticket size={18} className="logo-icon" /> Fare Summary
             </h3>
-            <span style={{ fontSize: '0.8rem', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '4px' }}>
+            <span className="fare-summary-badge">
               {bookingData.flight?.airline} • {bookingData.selectedClass?.name}
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.88rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#94a3b8' }}>Base Fare ({passengerCount} × ₹{basePricePerPerson.toLocaleString()}):</span>
-              <strong>₹{flightSubtotal.toLocaleString()}</strong>
+          <div className="fare-breakdown-list">
+            <div className="fare-row">
+              <span className="fare-row-label">Base Fare ({passengerCount} × ₹{basePricePerPerson.toLocaleString()}):</span>
+              <strong className="fare-row-value">₹{flightSubtotal.toLocaleString()}</strong>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#94a3b8' }}>Seat Fees:</span>
-              <strong style={{ color: seatFeeTotal > 0 ? '#38bdf8' : '#4ade80' }}>
+            <div className="fare-row">
+              <span className="fare-row-label">Seat Fees:</span>
+              <strong className={seatFeeTotal > 0 ? 'fare-row-highlight' : 'fare-row-success'}>
                 {seatFeeTotal > 0 ? `+₹${seatFeeTotal.toLocaleString()}` : 'Free'}
               </strong>
             </div>
 
             {/* Add-ons itemized if selected */}
             {addOnsTotal > 0 && (
-              <div style={{ borderLeft: '2px solid rgba(99,102,241,0.4)', paddingLeft: '0.75rem', margin: '0.2rem 0', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.75rem', color: '#a5b4fc', fontWeight: 600, textTransform: 'uppercase' }}>Selected Add-Ons</span>
+              <div className="fare-addons-breakdown">
+                <span className="fare-addons-label">Selected Add-Ons</span>
                 {mealCost > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                    <span style={{ color: '#cbd5e1' }}>• Meals ({mealOption === 'veg' ? 'Veg' : 'Non-Veg'} × {passengerCount}):</span>
+                  <div className="fare-addons-item">
+                    <span>• Meals ({mealOption === 'veg' ? 'Veg' : 'Non-Veg'} × {passengerCount}):</span>
                     <span>+₹{mealCost.toLocaleString()}</span>
                   </div>
                 )}
                 {baggageCost > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                    <span style={{ color: '#cbd5e1' }}>• Extra Baggage (10kg):</span>
+                  <div className="fare-addons-item">
+                    <span>• Extra Baggage (10kg):</span>
                     <span>+₹{baggageCost.toLocaleString()}</span>
                   </div>
                 )}
                 {insuranceCost > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                    <span style={{ color: '#cbd5e1' }}>• Travel Insurance ({passengerCount} pax):</span>
+                  <div className="fare-addons-item">
+                    <span>• Travel Insurance ({passengerCount} pax):</span>
                     <span>+₹{insuranceCost.toLocaleString()}</span>
                   </div>
                 )}
@@ -393,7 +381,7 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
 
             {/* Discount if applied */}
             {appliedPromo && discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4ade80' }}>
+              <div className="fare-row" style={{ color: 'var(--success-color)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <Tag size={14} /> Discount ({appliedPromo.code}):
                 </span>
@@ -402,74 +390,57 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
             )}
 
             {/* Taxes & GST */}
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#94a3b8' }}>Taxes & GST (5%):</span>
-              <strong style={{ color: '#cbd5e1' }}>+₹{taxesAndGst.toLocaleString()}</strong>
+            <div className="fare-row">
+              <span className="fare-row-label">Taxes & GST (5%):</span>
+              <strong className="fare-row-value">+₹{taxesAndGst.toLocaleString()}</strong>
             </div>
 
             {/* Grand Total */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--surface-border)', paddingTop: '0.75rem', marginTop: '0.4rem', fontSize: '1.15rem' }}>
-              <span style={{ fontWeight: 600 }}>Grand Total:</span>
-              <strong style={{ color: 'var(--accent-color)', fontSize: '1.35rem', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>₹{grandTotal.toLocaleString()}</strong>
+            <div className="fare-total-row">
+              <span>Grand Total:</span>
+              <strong className="fare-total-price">₹{grandTotal.toLocaleString()}</strong>
             </div>
           </div>
 
           {/* ── PROMO CODE INPUT BOX ───────────────────────────────── */}
-          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <label style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.5rem' }}>
-              <Tag size={14} style={{ color: '#fbbf24' }} /> Have a Promo Code?
+          <div className="promo-box-container">
+            <label className="promo-label">
+              <Tag size={14} style={{ color: 'var(--warning-color)' }} /> Have a Promo Code?
             </label>
             
             {!appliedPromo ? (
               <div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className="promo-input-group">
                   <input
                     type="text"
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                     placeholder="e.g. AERO10 or FLY500"
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      background: 'rgba(15,23,42,0.6)',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: '6px',
-                      color: '#fff',
-                      fontSize: '0.85rem',
-                      textTransform: 'uppercase'
-                    }}
+                    className="promo-input-field"
                   />
                   <button
                     type="button"
                     onClick={handleApplyPromo}
                     className="btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                    style={{ padding: '8px 14px', fontSize: '0.85rem', fontWeight: 600 }}
                   >
                     Apply
                   </button>
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+                <div className="promo-hint">
                   Try <strong>AERO10</strong> (10% off base) or <strong>FLY500</strong> (flat ₹500 off)
                 </div>
               </div>
             ) : (
-              <div style={{
-                background: 'rgba(34,197,94,0.12)',
-                border: '1px solid rgba(34,197,94,0.3)',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#4ade80', fontSize: '0.85rem', fontWeight: 600 }}>
+              <div className="promo-applied-box">
+                <div className="promo-applied-text">
                   <Check size={16} />
                   <span>{appliedPromo.code} applied (-₹{discount.toLocaleString()})</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleRemovePromo}
-                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                  className="promo-remove-btn"
                   title="Remove promo code"
                 >
                   <X size={16} />
@@ -481,7 +452,7 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
               <div style={{
                 marginTop: '6px',
                 fontSize: '0.75rem',
-                color: promoMessage.type === 'success' ? '#4ade80' : '#f87171'
+                color: promoMessage.type === 'success' ? 'var(--success-color)' : 'var(--danger-color)'
               }}>
                 {promoMessage.text}
               </div>
@@ -502,7 +473,7 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
               <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                 <label htmlFor="cardNumber">
                   Card Number
-                  <span style={{ color: '#64748b', fontWeight: 400, marginLeft: '0.5rem' }}>(16 digits)</span>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>(16 digits)</span>
                 </label>
                 <input
                   type="text"
@@ -618,7 +589,7 @@ const PaymentForm = ({ bookingData, userEmail, onBack, onSubmit, isSubmitting })
               </button>
             </div>
 
-            <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1rem' }}>
               E-Ticket & official boarding pass will be dispatched to <strong>{bookingData.passengers?.email || userEmail}</strong>.
             </p>
           </div>

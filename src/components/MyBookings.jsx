@@ -388,24 +388,24 @@ const MyBookings = ({ user, onTrackFlight, initialPnr = '' }) => {
               width: '90%',
               padding: '2rem',
               borderRadius: '16px',
-              background: '#0f172a',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+              background: 'var(--surface-color)',
+              border: '1px solid var(--danger-color)',
+              boxShadow: 'var(--shadow-lg)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#f87171' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--danger-color)' }}>
               <AlertTriangle size={28} />
-              <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#fff' }}>Cancel Flight Booking?</h3>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--text-primary)' }}>Cancel Flight Booking?</h3>
             </div>
 
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>
-              Are you sure you want to cancel booking <strong style={{ color: '#fff' }}>{bookingToCancel.id.slice(0, 6).toUpperCase()}</strong> ({bookingToCancel.flight?.origin} → {bookingToCancel.flight?.destination})?
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Are you sure you want to cancel booking <strong style={{ color: 'var(--text-primary)' }}>{bookingToCancel.id.slice(0, 6).toUpperCase()}</strong> ({bookingToCancel.flight?.origin} → {bookingToCancel.flight?.destination})?
             </p>
 
             {/* Refund Calculation Box */}
             <div style={{
-              background: 'rgba(30, 41, 59, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--surface-subtle)',
+              border: '1px solid var(--surface-border)',
               borderRadius: '10px',
               padding: '1rem',
               margin: '1.25rem 0',
@@ -423,14 +423,14 @@ const MyBookings = ({ user, onTrackFlight, initialPnr = '' }) => {
                 return (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Total Amount Paid:</span>
-                      <strong>₹{paid.toLocaleString()}</strong>
+                      <span style={{ color: 'var(--text-secondary)' }}>Total Amount Paid:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>₹{paid.toLocaleString()}</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--danger-color)' }}>
                       <span>Cancellation Fee (20%):</span>
                       <span>-₹{cancellationFee.toLocaleString()}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.5rem', marginTop: '0.2rem', color: '#4ade80', fontWeight: 700, fontSize: '1.05rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--surface-border)', paddingTop: '0.5rem', marginTop: '0.2rem', color: 'var(--success-color)', fontWeight: 700, fontSize: '1.05rem' }}>
                       <span>Estimated Refund (80%):</span>
                       <span>₹{refund.toLocaleString()}</span>
                     </div>
