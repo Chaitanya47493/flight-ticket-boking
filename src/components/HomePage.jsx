@@ -1,53 +1,14 @@
 import { useState, useRef } from 'react';
 import { 
   Plane, 
-  Search, 
-  UserCheck, 
-  Armchair, 
-  Ticket, 
   Radar, 
   ArrowRight, 
-  Sparkles, 
   ShieldCheck, 
   Compass,
   CheckCircle2,
   FileSearch
 } from 'lucide-react';
 import SearchForm from './SearchForm';
-import { POPULAR_ROUTES } from '../config/routes';
-
-const HOW_IT_WORKS_STEPS = [
-  {
-    stepNum: '01',
-    title: 'Search Routes',
-    desc: 'Select departure & arrival airports across India, travel dates, and passenger count.',
-    icon: Search
-  },
-  {
-    stepNum: '02',
-    title: 'Compare & Select',
-    desc: 'Review domestic airlines, flight duration, nonstop timings, and Economy or Business class.',
-    icon: Plane
-  },
-  {
-    stepNum: '03',
-    title: 'Passenger Info',
-    desc: 'Provide traveler names and travel preferences with validated input safeguards.',
-    icon: UserCheck
-  },
-  {
-    stepNum: '04',
-    title: 'Select Seats',
-    desc: 'Pick your seat on an interactive aircraft cabin map with real-time seat inventory.',
-    icon: Armchair
-  },
-  {
-    stepNum: '05',
-    title: 'Instant E-Ticket',
-    desc: 'Complete simulated card checkout to generate printable boarding passes and email delivery.',
-    icon: Ticket
-  }
-];
 
 const HomePage = ({
   onSearch,
@@ -56,20 +17,9 @@ const HomePage = ({
   onMyBookingsClick,
   user
 }) => {
-  const [selectedRoute, setSelectedRoute] = useState(null);
-  const [routeSeq, setRouteSeq] = useState(0);
   const [pnrInput, setPnrInput] = useState('');
   const [pnrError, setPnrError] = useState('');
   const searchFormRef = useRef(null);
-
-  const handleRouteClick = (route) => {
-    const nextSeq = routeSeq + 1;
-    setRouteSeq(nextSeq);
-    setSelectedRoute({ ...route, _ver: nextSeq });
-    if (searchFormRef.current) {
-      searchFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
 
   const handlePnrLookup = (e) => {
     e.preventDefault();
@@ -99,96 +49,13 @@ const HomePage = ({
           </p>
         </div>
 
-        {/* Embedded Flight Search Form (Reusing existing component) */}
+        {/* Embedded Flight Search Form */}
         <div className="home-search-embed">
           <SearchForm 
             onSearch={onSearch} 
             initialSearchData={initialSearchData}
-            externalRoute={selectedRoute}
             hideHeader={true}
           />
-        </div>
-      </section>
-
-      {/* ── POPULAR ROUTES CORRIDORS ───────────────────────────────── */}
-      <section className="home-section" id="popular-routes">
-        <div className="home-section-header">
-          <div className="home-section-badge">
-            <Sparkles size={14} style={{ color: 'var(--accent-color)' }} />
-            <span>Frequent Corridors</span>
-          </div>
-          <h2 className="home-section-title">Popular Domestic Routes</h2>
-          <p className="home-section-desc">
-            Direct connections between primary metropolitan hubs. Click any corridor to pre-fill your flight search.
-          </p>
-        </div>
-
-        <div className="corridor-grid">
-          {POPULAR_ROUTES.map((route) => (
-            <button
-              type="button"
-              key={`${route.from}-${route.to}`}
-              className="corridor-card"
-              onClick={() => handleRouteClick(route)}
-              aria-label={`Select route ${route.label}`}
-            >
-              <div className="corridor-card-top">
-                <span className="corridor-city-codes">
-                  <span className="corridor-code">{route.from}</span>
-                  <span className="corridor-arrow">⇄</span>
-                  <span className="corridor-code">{route.to}</span>
-                </span>
-                <span className="corridor-tag">Direct</span>
-              </div>
-              <div className="corridor-name">{route.label}</div>
-              {route.desc && (
-                <div className="corridor-airports">{route.desc}</div>
-              )}
-              <div className="corridor-card-action">
-                <span>Select Route</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── HOW BOOKING WORKS (Horizontal Sequence) ───────────────── */}
-      <section className="home-section" id="how-it-works">
-        <div className="home-section-header">
-          <div className="home-section-badge">
-            <CheckCircle2 size={14} style={{ color: 'var(--accent-color)' }} />
-            <span>5-Step Architecture</span>
-          </div>
-          <h2 className="home-section-title">How Booking Works</h2>
-          <p className="home-section-desc">
-            A transparent and realistic flight booking workflow from route search to boarding pass generation.
-          </p>
-        </div>
-
-        <div className="steps-track">
-          {HOW_IT_WORKS_STEPS.map((step, idx) => {
-            const Icon = step.icon;
-            return (
-              <div key={step.stepNum} className="step-track-item">
-                <div className="step-card">
-                  <div className="step-card-header">
-                    <span className="step-number">{step.stepNum}</span>
-                    <div className="step-icon-wrapper">
-                      <Icon size={18} />
-                    </div>
-                  </div>
-                  <h3 className="step-title">{step.title}</h3>
-                  <p className="step-description">{step.desc}</p>
-                </div>
-                {idx < HOW_IT_WORKS_STEPS.length - 1 && (
-                  <div className="step-track-arrow" aria-hidden="true">
-                    <ArrowRight size={16} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </div>
       </section>
 
@@ -315,8 +182,6 @@ const HomePage = ({
           <div className="footer-links-group">
             <div className="footer-links-col">
               <div className="footer-col-title">Navigation</div>
-              <a href="#popular-routes" className="footer-link">Popular Corridors</a>
-              <a href="#how-it-works" className="footer-link">How Booking Works</a>
               <button 
                 type="button" 
                 onClick={onRadarClick} 
